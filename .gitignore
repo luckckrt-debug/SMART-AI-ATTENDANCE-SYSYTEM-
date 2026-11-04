@@ -1,0 +1,48 @@
+# Environments
+venv/
+env/
+ENV/
+.venv/
+
+# Environment variables & secrets
+.env
+!.env.example
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyd
+
+# Databases & local persistent storage
+database/mongodb_data/
+database/students.db
+database/students.db-journal
+*.sqlite
+*.sqlite3
+
+# Attendance CSV session exports
+database/exports/*.csv
+!database/exports/.gitkeep
+
+# Logs
+*.log
+logs/
+
+# IDE / Editor configuration
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS generated files
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+.DS_Store
+
+# Temporary & test artifacts
+test_sample_face.jpg
+.system_generated/
+.gemini/

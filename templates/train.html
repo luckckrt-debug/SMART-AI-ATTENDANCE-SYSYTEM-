@@ -1,0 +1,192 @@
+{% extends "base.html" %}
+
+{% block title %}Train Recognition Model - Smart Attendance System{% endblock %}
+{% block page_title %}Model Training & Neural Architecture{% endblock %}
+
+{% block content %}
+<div class="row g-4">
+    <!-- Training Controls Column -->
+    <div class="col-lg-6">
+        <div class="card-custom">
+            <div class="card-header">
+                <span><i class="fa-solid fa-graduation-cap me-2 text-primary"></i>Classifier Training Controller</span>
+                <span class="badge {% if health.models.classifier %}bg-success{% else %}bg-warning text-dark{% endif %}" id="modelStatusBadge">
+                    {% if health.models.classifier %}Model Ready{% else %}Training Needed{% endif %}
+                </span>
+            </div>
+            <div class="card-body">
+                <p class="text-muted small">
+                    This step extracts 128-dimensional biometric embeddings from enrolled students' face samples using the pretrained FaceNet backbone, then trains a deep Multi-Layer Perceptron (Dense MLP) with Softmax classification.
+                </p>
+
+                <!-- Training Progress Box -->
+                <div class="border rounded p-3 mb-4 bg-light">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="fw-semibold small" id="trainStatusText">Status: {{ state.status }}</span>
+                        <span class="badge bg-primary" id="trainPercentText">{{ state.progress }}%</span>
+                    </div>
+
+                    <div class="progress mb-3" style="height: 14px;">
+                        <div class="progress-bar progress-bar-striped progress-bar-animated bg-primary" id="trainProgressBar" style="width: {{ state.progress }}%"></div>
+                    </div>
+
+                    <div class="row text-center small text-muted">
+                        <div class="col-4">
+                            <span class="d-block text-dark fw-bold" id="metricEpoch">{{ state.current_epoch }} / {{ state.total_epochs }}</span>
+                            <span>Epoch</span>
+                        </div>
+                        <div class="col-4">
+                            <span class="d-block text-dark fw-bold" id="metricLoss">{{ state.loss }}</span>
+                            <span>Loss</span>
+                        </div>
+                        <div class="col-4">
+                            <span class="d-block text-dark fw-bold" id="metricAcc">{{ state.accuracy }}</span>
+                            <span>Accuracy</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Train Button -->
+                {% if student_dirs|length >= 1 %}
+                <button type="button" class="btn btn-primary-gradient w-100 py-3 fw-bold fs-5 shadow-sm" id="startTrainBtn" {% if state.is_training %}disabled{% endif %}>
+                    <i class="fa-solid fa-play me-2"></i>Start Model Training
+                </button>
+                {% else %}
+                <div class="alert alert-warning small mb-0">
+                    <i class="fa-solid fa-triangle-exclamation me-1"></i>
+                    No student dataset found. Please <a href="{{ url_for('enroll_page') }}" class="alert-link">enroll at least 1 student</a> before training.
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Dataset Inspection Column -->
+    <div class="col-lg-6">
+        <div class="card-custom">
+            <div class="card-header">
+                <span><i class="fa-solid fa-folder-tree me-2 text-primary"></i>Enrolled Dataset Availability ({{ student_dirs|length }} Classes)</span>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive" style="max-height: 480px; overflow-y: auto;">
+                    <table class="table table-custom table-hover align-middle mb-0">
+                        <thead class="table-light sticky-top">
+                            <tr>
+                                <th>Roll</th>
+                                <th>Student Name</th>
+                                <th>Images Captured</th>
+                                <th>Dataset Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% if student_dirs %}
+                                {% for s in student_dirs %}
+                                <tr>
+                                    <td class="fw-bold">{{ s.roll }}</td>
+                                    <td>{{ s.name }}</td>
+                                    <td><span class="badge bg-secondary">{{ s.pics }} images</span></td>
+                                    <td>
+                                        {% if s.pics >= 10 %}
+                                        <span class="badge bg-success-subtle text-success"><i class="fa-solid fa-check me-1"></i>Optimal</span>
+                                        {% elif s.pics > 0 %}
+                                        <span class="badge bg-warning-subtle text-warning"><i class="fa-solid fa-triangle-exclamation me-1"></i>Low Count</span>
+                                        {% else %}
+                                        <span class="badge bg-danger-subtle text-danger"><i class="fa-solid fa-xmark me-1"></i>Empty</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            {% else %}
+                                <tr>
+                                    <td colspan="4" class="text-center py-4 text-muted">No student image folders found in people/</td>
+                                </tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+const startTrainBtn = document.getElementById('startTrainBtn');
+const trainProgressBar = document.getElementById('trainProgressBar');
+const trainPercentText = document.getElementById('trainPercentText');
+const trainStatusText = document.getElementById('trainStatusText');
+const metricEpoch = document.getElementById('metricEpoch');
+const metricLoss = document.getElementById('metricLoss');
+const metricAcc = document.getElementById('metricAcc');
+const modelStatusBadge = document.getElementById('modelStatusBadge');
+
+let pollTimer = null;
+
+if (startTrainBtn) {
+    startTrainBtn.addEventListener('click', async () => {
+        startTrainBtn.disabled = true;
+        startTrainBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Training in Progress...';
+        trainStatusText.innerText = 'Status: Initializing training process...';
+
+        try {
+            const resp = await fetch('/api/train/start', { method: 'POST' });
+            const data = await resp.json();
+            if (data.success) {
+                showToast(data.message, 'info');
+                startPolling();
+            } else {
+                showToast(data.message, 'danger');
+                startTrainBtn.disabled = false;
+                startTrainBtn.innerHTML = '<i class="fa-solid fa-play me-2"></i>Start Model Training';
+            }
+        } catch (e) {
+            showToast('Training trigger error: ' + e.message, 'danger');
+            startTrainBtn.disabled = false;
+            startTrainBtn.innerHTML = '<i class="fa-solid fa-play me-2"></i>Start Model Training';
+        }
+    });
+}
+
+function startPolling() {
+    if (pollTimer) clearInterval(pollTimer);
+    pollTimer = setInterval(async () => {
+        try {
+            const resp = await fetch('/api/train/status');
+            const st = await resp.json();
+
+            trainProgressBar.style.width = st.progress + '%';
+            trainPercentText.innerText = st.progress + '%';
+            trainStatusText.innerText = 'Status: ' + st.status;
+            metricEpoch.innerText = `${st.current_epoch} / ${st.total_epochs}`;
+            metricLoss.innerText = st.loss;
+            metricAcc.innerText = st.accuracy;
+
+            if (!st.is_training) {
+                clearInterval(pollTimer);
+                if (startTrainBtn) {
+                    startTrainBtn.disabled = false;
+                    startTrainBtn.innerHTML = '<i class="fa-solid fa-play me-2"></i>Start Model Training';
+                }
+
+                if (st.progress === 100) {
+                    showToast('Model training completed successfully!', 'success');
+                    playSuccessChime();
+                    modelStatusBadge.className = 'badge bg-success';
+                    modelStatusBadge.innerText = 'Model Ready';
+                } else if (st.error) {
+                    showToast('Training failed: ' + st.error, 'danger');
+                }
+            }
+        } catch (e) {
+            console.error('Polling status error:', e);
+        }
+    }, 1000);
+}
+
+// Auto-poll if already training when page opened
+{% if state.is_training %}
+startPolling();
+{% endif %}
+</script>
+{% endblock %}

@@ -1,0 +1,286 @@
+{% extends "base.html" %}
+
+{% block title %}{{ subject }} Attendance - Smart Attendance System{% endblock %}
+{% block page_title %}{{ subject }} Live Facial Attendance Scanner{% endblock %}
+
+{% block content %}
+<div class="row g-4">
+    <!-- Camera Scanner Column -->
+    <div class="col-lg-7">
+        <div class="card-custom">
+            <div class="card-header">
+                <span>
+                    <i class="fa-solid fa-camera-viewfinder me-2 text-primary"></i>
+                    {{ subject }} Camera Feed
+                </span>
+                <span class="badge bg-primary-subtle text-primary border border-primary-subtle">
+                    Threshold: {{ (config.confidence_threshold * 100)|int }}%
+                </span>
+            </div>
+            <div class="card-body">
+                <!-- Video / Streaming Viewport -->
+                <div class="camera-box mb-3" id="scannerViewport">
+                    <video id="scannerVideo" autoplay playsinline muted style="display: none;"></video>
+                    <canvas id="scannerCanvas" style="display: none;"></canvas>
+                    <img id="annotatedFeed" src="" alt="Live Face Recognition Scanner" style="display: none;">
+                    
+                    <div id="standbyScreen" class="text-center text-light p-4">
+                        <i class="fa-solid fa-user-shield fs-1 mb-3 text-secondary"></i>
+                        <h5>Scanner is Offline</h5>
+                        <p class="text-muted small">Click 'Start Scanner' below to initiate real-time facial recognition.</p>
+                    </div>
+
+                    <div class="camera-overlay" id="scannerHUD" style="display: none;">
+                        <span class="pulse-dot"></span> <span id="hudStatus">Processing Feed</span>
+                    </div>
+                </div>
+
+                <!-- Scanner Controls -->
+                <div class="d-flex flex-wrap gap-2 justify-content-between align-items-center mb-3">
+                    <div class="d-flex gap-2">
+                        <button type="button" class="btn btn-success px-4" id="startScannerBtn">
+                            <i class="fa-solid fa-play me-1"></i> Start Scanner
+                        </button>
+                        <button type="button" class="btn btn-danger" id="stopScannerBtn" disabled>
+                            <i class="fa-solid fa-stop me-1"></i> Stop Scanner
+                        </button>
+                    </div>
+
+                    <div class="d-flex gap-2">
+                        <button type="button" class="btn btn-outline-secondary btn-sm" id="resetSessionBtn">
+                            <i class="fa-solid fa-rotate-left me-1"></i> Reset Session
+                        </button>
+                        <a href="{{ url_for('export_csv_route', subject=subject) }}" class="btn btn-outline-primary btn-sm">
+                            <i class="fa-solid fa-file-arrow-down me-1"></i> Export {{ subject }} CSV
+                        </a>
+                    </div>
+                </div>
+
+                <!-- Recognition Warning Note -->
+                <div class="alert alert-info py-2 px-3 small d-flex align-items-center gap-2 mb-0">
+                    <i class="fa-solid fa-circle-info fs-5"></i>
+                    <div>
+                        <strong>Notice:</strong> Facial recognition provides probabilistic verification. Attendance is recorded after <strong>{{ config.frames_for_attendance }} sustained frames</strong> to ensure accuracy. Instructors can also use manual override anytime.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Attendance Session Live Table Column -->
+    <div class="col-lg-5">
+        <div class="card-custom">
+            <div class="card-header">
+                <span><i class="fa-solid fa-clipboard-check me-2 text-success"></i>Session Attendance Sheet ({{ subject }})</span>
+                <span class="badge bg-success" id="markedCounter">0 Marked</span>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive" style="max-height: 520px; overflow-y: auto;">
+                    <table class="table table-custom table-hover align-middle mb-0">
+                        <thead class="table-light sticky-top">
+                            <tr>
+                                <th>Roll</th>
+                                <th>Name</th>
+                                <th>Total Hits</th>
+                                <th class="text-end">Manual Fix</th>
+                            </tr>
+                        </thead>
+                        <tbody id="attendanceTableBody">
+                            {% if records %}
+                                {% for r in records %}
+                                <tr id="record-{{ r.roll_number }}">
+                                    <td class="fw-bold">{{ r.roll_number }}</td>
+                                    <td>{{ r.name }}</td>
+                                    <td>
+                                        <span class="badge {% if r.attendance_count > 0 %}bg-success{% else %}bg-secondary{% endif %}" id="count-{{ r.roll_number }}">
+                                            {{ r.attendance_count }}
+                                        </span>
+                                    </td>
+                                    <td class="text-end">
+                                        <button class="btn btn-sm btn-outline-success mark-one-btn" data-roll="{{ r.roll_number }}" data-count="{{ r.attendance_count }}" title="Mark +1">
+                                            <i class="fa-solid fa-plus"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            {% else %}
+                                <tr>
+                                    <td colspan="4" class="text-center py-4 text-muted">No student records found in database.</td>
+                                </tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+const subject = "{{ subject }}";
+let scannerStream = null;
+let scanInterval = null;
+let isScanning = false;
+
+const scannerVideo = document.getElementById('scannerVideo');
+const scannerCanvas = document.getElementById('scannerCanvas');
+const annotatedFeed = document.getElementById('annotatedFeed');
+const standbyScreen = document.getElementById('standbyScreen');
+const scannerHUD = document.getElementById('scannerHUD');
+const hudStatus = document.getElementById('hudStatus');
+const startScannerBtn = document.getElementById('startScannerBtn');
+const stopScannerBtn = document.getElementById('stopScannerBtn');
+const resetSessionBtn = document.getElementById('resetSessionBtn');
+
+// Start Scanner
+startScannerBtn.addEventListener('click', async () => {
+    try {
+        scannerStream = await navigator.mediaDevices.getUserMedia({
+            video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'user' }
+        });
+        scannerVideo.srcObject = scannerStream;
+        await scannerVideo.play();
+
+        standbyScreen.style.display = 'none';
+        annotatedFeed.style.display = 'block';
+        scannerHUD.style.display = 'flex';
+
+        startScannerBtn.disabled = true;
+        stopScannerBtn.disabled = false;
+        isScanning = true;
+
+        startRecognitionLoop();
+        showToast('Live attendance scanner started.', 'info');
+    } catch (err) {
+        showToast('Camera access failed: ' + err.message, 'danger');
+    }
+});
+
+// Stop Scanner
+function stopScanner() {
+    isScanning = false;
+    if (scanInterval) {
+        clearInterval(scanInterval);
+        scanInterval = null;
+    }
+    if (scannerStream) {
+        scannerStream.getTracks().forEach(t => t.stop());
+        scannerStream = null;
+    }
+    scannerVideo.pause();
+    scannerVideo.srcObject = null;
+
+    annotatedFeed.style.display = 'none';
+    scannerHUD.style.display = 'none';
+    standbyScreen.style.display = 'block';
+
+    startScannerBtn.disabled = false;
+    stopScannerBtn.disabled = true;
+}
+stopScannerBtn.addEventListener('click', stopScanner);
+
+// Recognition processing loop
+function startRecognitionLoop() {
+    scannerCanvas.width = 640;
+    scannerCanvas.height = 480;
+    const ctx = scannerCanvas.getContext('2d');
+
+    let inFlight = false;
+
+    scanInterval = setInterval(async () => {
+        if (!isScanning || inFlight) return;
+        if (scannerVideo.readyState !== scannerVideo.HAVE_ENOUGH_DATA) return;
+
+        inFlight = true;
+        try {
+            ctx.drawImage(scannerVideo, 0, 0, scannerCanvas.width, scannerCanvas.height);
+            const frameB64 = scannerCanvas.toDataURL('image/jpeg', 0.7);
+
+            const resp = await fetch('/api/recognize_frame', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    frame: frameB64,
+                    subject: subject,
+                    auto_mark: true
+                })
+            });
+
+            const data = await resp.json();
+            if (data.success) {
+                annotatedFeed.src = data.annotated_frame;
+
+                if (data.detections && data.detections.length > 0) {
+                    data.detections.forEach(det => {
+                        if (det.marked && det.roll !== 'Unknown') {
+                            playSuccessChime();
+                            showToast(`Attendance marked for ${det.name} (Roll: ${det.roll})!`, 'success');
+                            updateRowAttendance(det.roll);
+                        }
+                    });
+                }
+            }
+        } catch (e) {
+            console.warn('Frame recognition error:', e);
+        } finally {
+            inFlight = false;
+        }
+    }, 250); // Process 4 frames per second
+}
+
+// Update row in UI table when attendance is recorded
+function updateRowAttendance(roll) {
+    const countBadge = document.getElementById(`count-${roll}`);
+    if (countBadge) {
+        let cur = parseInt(countBadge.innerText) || 0;
+        countBadge.innerText = cur + 1;
+        countBadge.className = 'badge bg-success';
+    }
+}
+
+// Reset session
+resetSessionBtn.addEventListener('click', async () => {
+    try {
+        await fetch('/api/attendance/reset_session', { method: 'POST' });
+        showToast('Recognition session reset.', 'info');
+    } catch (e) {
+        console.error(e);
+    }
+});
+
+// Manual Attendance Quick-Mark (+1)
+document.querySelectorAll('.mark-one-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+        const roll = btn.dataset.roll;
+        const countBadge = document.getElementById(`count-${roll}`);
+        let currentCount = parseInt(countBadge.innerText) || 0;
+        const newCount = currentCount + 1;
+
+        try {
+            const resp = await fetch('/api/attendance/manual', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    roll_number: roll,
+                    subject: subject,
+                    count: newCount
+                })
+            });
+            const data = await resp.json();
+            if (data.success) {
+                countBadge.innerText = newCount;
+                countBadge.className = 'badge bg-success';
+                showToast(data.message, 'success');
+                playSuccessChime();
+            } else {
+                showToast(data.message, 'danger');
+            }
+        } catch (e) {
+            showToast('Manual update error: ' + e.message, 'danger');
+        }
+    });
+});
+</script>
+{% endblock %}

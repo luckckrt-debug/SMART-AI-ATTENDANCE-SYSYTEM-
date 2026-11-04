@@ -1,0 +1,839 @@
+{% extends "base.html" %}
+
+{% block title %}Teacher Dashboard - SmartClass AI{% endblock %}
+{% block page_title %}Classroom Teacher Portal{% endblock %}
+
+{% block content %}
+<!-- Active Session Header Banner -->
+<div class="card-custom mb-4 overflow-hidden" style="border-left: 4px solid var(--accent-cyan); background: #ffffff;">
+    <div class="card-body p-4">
+        {% if active_session %}
+        <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
+            <div>
+                <div class="d-flex align-items-center gap-2 mb-1">
+                    <span class="badge bg-success"><i class="fa-solid fa-circle-dot me-1"></i>ACTIVE SESSION IN PROGRESS</span>
+                    <span class="badge bg-dark">{{ active_session.academic_year }}</span>
+                    <span class="badge bg-info text-dark fw-bold">{{ active_session.section }}</span>
+                </div>
+                <h3 class="fw-bold mb-1 text-dark">{{ active_session.subject }}</h3>
+                <div class="text-muted small d-flex flex-wrap gap-3 mt-1">
+                    <span><i class="fa-solid fa-chalkboard-user me-1 text-primary"></i>Faculty: <strong>{{ active_session.faculty_name }}</strong></span>
+                    <span><i class="fa-solid fa-building-columns me-1 text-secondary"></i>Dept: {{ active_session.department }}</span>
+                    <span><i class="fa-regular fa-calendar-days me-1 text-info"></i>Date: {{ active_session.session_start_time.split()[0] if ' ' in active_session.session_start_time else active_session.session_start_time }}</span>
+                    <span><i class="fa-regular fa-clock me-1 text-info"></i>Started: {{ active_session.session_start_time.split()[1] if ' ' in active_session.session_start_time else '' }}</span>
+                    <span class="badge bg-light text-dark border">Session ID: {{ active_session.session_id }}</span>
+                </div>
+            </div>
+
+            <div class="d-flex gap-2 flex-wrap">
+                <a href="#cameraScannerSection" class="btn btn-primary px-3 py-2 shadow-sm" onclick="toggleCameraScanner(true)">
+                    <i class="fa-solid fa-video me-1 text-cyan"></i>Launch Live Scanner
+                </a>
+                <button type="button" class="btn btn-outline-danger px-3 py-2" id="endSessionBtn">
+                    <i class="fa-solid fa-power-off me-1"></i>End Session
+                </button>
+            </div>
+        </div>
+
+        <!-- Session Attendance Summary Metrics -->
+        <div class="row g-3 mt-3 pt-3 border-top">
+            <div class="col-6 col-md-3">
+                <div class="p-2 rounded bg-light border text-center">
+                    <div class="small text-muted fw-semibold">Class Roster</div>
+                    <div class="fs-4 fw-bold text-dark">{{ stats.total_students }}</div>
+                    <small class="text-muted">Enrolled in section</small>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="p-2 rounded bg-light border text-center border-success-subtle">
+                    <div class="small text-success fw-semibold"><i class="fa-solid fa-circle-check me-1"></i>Present Today</div>
+                    <div class="fs-4 fw-bold text-success">{{ stats.active_present }}</div>
+                    <small class="text-muted">Verified arrivals</small>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="p-2 rounded bg-light border text-center border-warning-subtle">
+                    <div class="small text-warning fw-semibold"><i class="fa-solid fa-circle-xmark me-1"></i>Absent Today</div>
+                    <div class="fs-4 fw-bold text-danger">{{ stats.active_absent }}</div>
+                    <small class="text-muted">Pending check-in</small>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="p-2 rounded bg-light border text-center border-primary-subtle">
+                    <div class="small text-primary fw-semibold"><i class="fa-solid fa-percent me-1"></i>Attendance Rate</div>
+                    <div class="fs-4 fw-bold text-primary">
+                        {% if stats.total_students > 0 %}
+                            {{ (stats.active_present / stats.total_students * 100) | round(1) }}%
+                        {% else %}
+                            0%
+                        {% endif %}
+                    </div>
+                    <small class="text-muted">Active turnout</small>
+                </div>
+            </div>
+        </div>
+
+        {% else %}
+        <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
+            <div>
+                <span class="badge bg-secondary mb-2">NO ACTIVE SESSION</span>
+                <h4 class="fw-bold mb-1 text-dark">No Classroom Session Currently Active</h4>
+                <p class="text-muted mb-0 small">Create and start a class session below to begin tracking student presence, duration, and attendance.</p>
+            </div>
+            <div>
+                <button type="button" class="btn btn-primary" onclick="switchMainTab('session-manager-tab')">
+                    <i class="fa-solid fa-plus me-1"></i> Start New Session
+                </button>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Primary Dual Modules Navigation Tabs -->
+<ul class="nav nav-pills mb-4 gap-2" id="teacherModulesTabs" role="tablist">
+    <li class="nav-item flex-grow-1" role="presentation">
+        <button class="nav-link active w-100 py-3 text-center fw-bold fs-6 shadow-sm border" id="attendance-tab" data-bs-toggle="pill" data-bs-target="#attendance-pane" type="button" role="tab">
+            <i class="fa-solid fa-clipboard-user me-2 text-primary fs-5"></i> 1. ATTENDANCE MODULE
+        </button>
+    </li>
+    <li class="nav-item flex-grow-1" role="presentation">
+        <button class="nav-link w-100 py-3 text-center fw-bold fs-6 shadow-sm border" id="session-manager-tab" data-bs-toggle="pill" data-bs-target="#session-manager-pane" type="button" role="tab">
+            <i class="fa-solid fa-layer-group me-2 text-info fs-5"></i> 2. SESSION MANAGER
+        </button>
+    </li>
+</ul>
+
+<div class="tab-content" id="teacherModulesContent">
+
+    <!-- ========================================================================= -->
+    <!-- MODULE 1: ATTENDANCE                                                      -->
+    <!-- ========================================================================= -->
+    <div class="tab-pane fade show active" id="attendance-pane" role="tabpanel">
+
+        <!-- Live Multi-Person Classroom Camera Scanner Section -->
+        <div class="card-custom mb-4 overflow-hidden" id="cameraScannerSection" style="background: #ffffff; border: 1px solid rgba(10, 25, 47, 0.12);">
+            <div class="card-header d-flex justify-content-between align-items-center py-2 px-3" style="background: #0a192f; color: #fff;">
+                <div class="d-flex align-items-center gap-2">
+                    <i class="fa-solid fa-video text-cyan fs-5"></i>
+                    <span class="fw-bold text-white fs-6">Live Multi-Person Classroom Camera Scanner</span>
+                </div>
+                <button class="btn btn-sm btn-outline-cyan" type="button" id="toggleScannerBtn">
+                    <i class="fa-solid fa-expand me-1"></i> Toggle Scanner View
+                </button>
+            </div>
+
+            <div class="card-body p-3" id="scannerCollapseBody" style="display: none; background: #f8fafc;">
+                <div class="row g-3">
+                    <div class="col-lg-8">
+                        <div class="camera-wrapper position-relative rounded overflow-hidden shadow-sm" id="cameraWrapper" style="background: #020612; border: 1px solid rgba(10, 25, 47, 0.25);">
+                            <!-- Top Status Bar -->
+                            <div class="camera-top-bar d-flex justify-content-between align-items-center px-3 py-2 text-white small" style="background: rgba(10, 25, 47, 0.95); border-bottom: 1px solid rgba(100, 255, 218, 0.2); z-index: 5;">
+                                <div class="d-flex align-items-center gap-2">
+                                    <span class="badge bg-secondary" id="camStatusBadge">
+                                        <i class="fa-solid fa-circle me-1" style="font-size: 0.6rem;"></i><span id="camStatusText">OFFLINE</span>
+                                    </span>
+                                    <span class="text-light small text-truncate" style="max-width: 220px;" id="camDeviceNameDisplay">No Camera Active</span>
+                                </div>
+                                <div class="d-flex align-items-center gap-3 font-monospace">
+                                    <span class="text-cyan"><i class="fa-solid fa-users-viewfinder me-1"></i>FACES: <strong class="text-white" id="hudFaceCount">0</strong></span>
+                                    <span class="text-secondary">|</span>
+                                    <span class="text-cyan"><i class="fa-regular fa-clock me-1"></i><span id="hudClock" class="text-white">--:--:--</span></span>
+                                </div>
+                            </div>
+
+                            <!-- Camera Viewport / Preview -->
+                            <div class="position-relative d-flex align-items-center justify-content-center" id="viewportContainer" style="min-height: 400px; max-height: 540px; background: #000;">
+                                <!-- Offline / Standby Placeholder Screen (Zero Green Screen!) -->
+                                <div id="camOfflinePlaceholder" class="text-center p-4" style="z-index: 2;">
+                                    <div class="mb-3 text-secondary">
+                                        <i class="fa-solid fa-video-slash display-4" style="color: #64748b;"></i>
+                                    </div>
+                                    <h5 class="text-white mb-2" id="placeholderTitle">Classroom Camera Offline</h5>
+                                    <p class="small text-secondary mb-3" style="max-width: 380px;" id="placeholderDesc">Click <strong>Start Camera</strong> below to access your webcam, detect multiple students, and track classroom attendance in real time.</p>
+                                    <div id="camErrorAlert" class="alert alert-danger py-2 px-3 small d-none" style="max-width: 440px;" role="alert"></div>
+                                </div>
+
+                                <!-- Actual Native Live Video (Clean, Smooth 60fps, Never Green!) -->
+                                <video id="clientWebcam" autoplay playsinline muted style="width: 100%; height: 100%; object-fit: contain; display: none; transform: scaleX(-1);"></video>
+
+                                <!-- Transparent HUD Overlay Canvas for Bounding Boxes, IDs, and Labels -->
+                                <canvas id="clientOverlayCanvas" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: contain; pointer-events: none; z-index: 4; display: none;"></canvas>
+
+                                <!-- Offscreen Capture Canvas for AI recognition -->
+                                <canvas id="clientCaptureCanvas" style="display: none;"></canvas>
+                            </div>
+
+                            <!-- Bottom Performance Bar -->
+                            <div class="camera-bottom-bar d-flex flex-wrap justify-content-between align-items-center px-3 py-2 text-white font-monospace small" style="background: rgba(10, 25, 47, 0.95); border-top: 1px solid rgba(100, 255, 218, 0.2); font-size: 0.78rem; z-index: 5;">
+                                <div class="d-flex align-items-center gap-3">
+                                    <span><span class="text-cyan">FPS:</span> <strong id="hudFpsVal" class="text-white">0</strong></span>
+                                    <span class="text-secondary">&bull;</span>
+                                    <span><span class="text-cyan">Faces:</span> <strong id="hudFacesVal" class="text-white">0</strong></span>
+                                    <span class="text-secondary">&bull;</span>
+                                    <span><span class="text-cyan">Latency:</span> <strong id="hudLatencyVal" class="text-white">0ms</strong></span>
+                                </div>
+                                <div>
+                                    <span class="text-cyan">Resolution:</span> <span id="hudResolutionVal" class="text-white">-</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Controls Toolbar -->
+                        <div class="d-flex flex-wrap gap-2 align-items-center justify-content-between mt-3 p-2 rounded bg-white border shadow-sm">
+                            <div class="d-flex flex-wrap gap-2 align-items-center">
+                                <button type="button" class="btn btn-sm btn-primary px-3" id="startScannerCamBtn">
+                                    <i class="fa-solid fa-play me-1"></i> Start Camera
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-warning" id="pauseScannerCamBtn" disabled>
+                                    <i class="fa-solid fa-pause me-1"></i> Pause
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-success" id="resumeScannerCamBtn" style="display: none;">
+                                    <i class="fa-solid fa-play me-1"></i> Resume
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-danger" id="stopScannerCamBtn" disabled>
+                                    <i class="fa-solid fa-stop me-1"></i> Stop Camera
+                                </button>
+                            </div>
+
+                            <div class="d-flex align-items-center gap-2">
+                                <label for="cameraDeviceSelect" class="small text-muted text-nowrap d-none d-sm-inline mb-0 fw-semibold">Camera Device:</label>
+                                <select class="form-select form-select-sm" id="cameraDeviceSelect" style="max-width: 220px;">
+                                    <option value="">Default Camera</option>
+                                </select>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" id="fullscreenCamBtn" title="Toggle Fullscreen">
+                                    <i class="fa-solid fa-expand"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <!-- Developer Diagnostics & Telemetry Panel (Collapsible) -->
+                        <div class="mt-3">
+                            <button class="btn btn-sm btn-outline-secondary d-flex align-items-center gap-2 w-100 justify-content-between" type="button" data-bs-toggle="collapse" data-bs-target="#dashboardDiagnosticsCollapse" aria-expanded="false" id="toggleDashboardDiagnosticsBtn">
+                                <span class="d-flex align-items-center gap-2">
+                                    <i class="fa-solid fa-screwdriver-wrench text-cyan"></i>
+                                    <span class="fw-semibold text-dark">Real-Time Camera Diagnostics & Pipeline Telemetry</span>
+                                </span>
+                                <i class="fa-solid fa-chevron-down text-muted"></i>
+                            </button>
+                            <div class="collapse mt-2" id="dashboardDiagnosticsCollapse">
+                                <div class="card card-body p-3 font-monospace small" style="background: #061122; border: 1px solid rgba(10, 25, 47, 0.2); color: #e6f1ff;">
+                                    <!-- Diagnostics Warning Banner -->
+                                    <div id="diagFrozenWarning" class="alert alert-warning py-2 px-3 small d-none mb-3" role="alert">
+                                        <i class="fa-solid fa-triangle-exclamation me-2"></i>
+                                        <strong>Diagnostic Warning:</strong> Camera is connected but video frames are not updating or receiving data from the sensor.
+                                    </div>
+
+                                    <div class="row g-2">
+                                        <div class="col-sm-6 col-md-3">
+                                            <span class="text-secondary">MediaStream:</span>
+                                            <strong id="diagStreamAvailable" class="text-white ms-1">NO</strong>
+                                        </div>
+                                        <div class="col-sm-6 col-md-3">
+                                            <span class="text-secondary">Track State:</span>
+                                            <strong id="diagTrackState" class="text-white ms-1">NONE</strong>
+                                        </div>
+                                        <div class="col-sm-6 col-md-3">
+                                            <span class="text-secondary">Track Enabled:</span>
+                                            <strong id="diagTrackEnabled" class="text-white ms-1">NO</strong>
+                                        </div>
+                                        <div class="col-sm-6 col-md-3">
+                                            <span class="text-secondary">Device ID:</span>
+                                            <span id="diagDeviceId" class="text-white ms-1 text-truncate d-inline-block" style="max-width: 140px;">-</span>
+                                        </div>
+                                        <div class="col-sm-6 col-md-3">
+                                            <span class="text-secondary">Video readyState:</span>
+                                            <strong id="diagReadyState" class="text-white ms-1">0 (HAVE_NOTHING)</strong>
+                                        </div>
+                                        <div class="col-sm-6 col-md-3">
+                                            <span class="text-secondary">Video Dims:</span>
+                                            <strong id="diagVideoDims" class="text-white ms-1">0 × 0</strong>
+                                        </div>
+                                        <div class="col-sm-6 col-md-3">
+                                            <span class="text-secondary">Canvas Dims:</span>
+                                            <strong id="diagCanvasDims" class="text-white ms-1">0 × 0</strong>
+                                        </div>
+                                        <div class="col-sm-6 col-md-3">
+                                            <span class="text-secondary">Playback:</span>
+                                            <strong id="diagPlaybackStatus" class="text-white ms-1">IDLE</strong>
+                                        </div>
+                                        <div class="col-sm-6 col-md-3">
+                                            <span class="text-secondary">Last Frame:</span>
+                                            <strong id="diagLastFrameReceived" class="text-white ms-1">-</strong>
+                                        </div>
+                                        <div class="col-sm-6 col-md-3">
+                                            <span class="text-secondary">Face Detector:</span>
+                                            <strong id="diagDetectorStatus" class="text-success ms-1">AI READY (Haar + Dlib)</strong>
+                                        </div>
+                                        <div class="col-sm-6 col-md-3">
+                                            <span class="text-secondary">Recognition Model:</span>
+                                            <strong id="diagModelStatus" class="text-success ms-1">AI READY (FaceNet)</strong>
+                                        </div>
+                                        <div class="col-sm-6 col-md-3">
+                                            <span class="text-secondary">Status:</span>
+                                            <strong id="diagCameraStatusVal" class="text-cyan ms-1">IDLE</strong>
+                                        </div>
+                                        <div class="col-12 mt-2 pt-2 border-top border-secondary border-opacity-25">
+                                            <span class="text-secondary">Last Error:</span>
+                                            <span id="diagLastError" class="text-success ms-1">None</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Live Verified Student Cards Reel -->
+                    <div class="col-lg-4">
+                        <div class="card h-100 border shadow-sm" style="background: #ffffff;">
+                            <div class="card-header bg-light py-2 small fw-bold text-dark d-flex justify-content-between align-items-center">
+                                <span><i class="fa-solid fa-id-card me-1 text-primary"></i> Live Verified Student Cards</span>
+                                <span class="badge bg-primary" id="verifiedCountBadge">0 Verified</span>
+                            </div>
+                            <div class="card-body p-2" id="verifiedCardsContainer" style="max-height: 480px; overflow-y: auto;">
+                                <div class="text-center py-5 text-muted small" id="noDetectionsMsg">
+                                    <i class="fa-regular fa-user display-6 mb-2 text-secondary opacity-50 d-block"></i>
+                                    Facial detections and sustained attendance verifications will appear here in real time.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Attendance Roster & History -->
+        <div class="card-custom mb-4">
+            <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
+                <div class="d-flex align-items-center gap-3 flex-wrap">
+                    <span><i class="fa-solid fa-list-check me-2 text-primary"></i>Attendance Records</span>
+
+                    <!-- View by Session Dropdown -->
+                    <div class="d-flex align-items-center gap-1">
+                        <label for="sessionViewSelect" class="small text-muted fw-semibold text-nowrap">Session:</label>
+                        <select class="form-select form-select-sm" id="sessionViewSelect" onchange="switchSessionView(this.value)" style="min-width: 260px;">
+                            {% if sessions %}
+                                {% for s in sessions %}
+                                <option value="{{ s.session_id }}" {% if s.session_id == selected_session_id %}selected{% endif %}>
+                                    {{ s.subject }} ({{ s.section }}) — {{ s.session_start_time.split()[0] if ' ' in s.session_start_time else s.session_start_time }} {% if s.status == 'ACTIVE' %}★ Active{% endif %}
+                                </option>
+                                {% endfor %}
+                            {% else %}
+                                <option value="">No sessions recorded</option>
+                            {% endif %}
+                        </select>
+                    </div>
+
+                    <!-- Filter Buttons -->
+                    <div class="btn-group btn-group-sm" role="group">
+                        <button type="button" class="btn btn-outline-secondary active" id="filterAllBtn" onclick="filterRoster('ALL')">All ({{ roster|length }})</button>
+                        <button type="button" class="btn btn-outline-success" id="filterPresentBtn" onclick="filterRoster('PRESENT')">Present ({{ stats.active_present }})</button>
+                        <button type="button" class="btn btn-outline-danger" id="filterAbsentBtn" onclick="filterRoster('ABSENT')">Absent ({{ stats.active_absent }})</button>
+                    </div>
+                </div>
+
+                <div class="d-flex gap-2 align-items-center">
+                    <input type="text" class="form-control form-control-sm" id="searchRosterInput" placeholder="Search by name or roll..." style="max-width: 180px;">
+                    {% if selected_session_id %}
+                    <a href="/export/session_csv/{{ selected_session_id }}" class="btn btn-sm btn-outline-primary text-nowrap">
+                        <i class="fa-solid fa-file-csv me-1"></i> Export CSV
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-custom table-hover align-middle mb-0" id="rosterTable">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Student</th>
+                                <th>Roll Number</th>
+                                <th>Section</th>
+                                <th>Attendance Status</th>
+                                <th>First Check-In</th>
+                                <th>Last Seen</th>
+                                <th>Verified Duration</th>
+                                <th>Exits</th>
+                                <th>Method</th>
+                                <th class="text-end">Teacher Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% if roster %}
+                                {% for r in roster %}
+                                <tr class="roster-row" data-status="{{ r.status }}" data-name="{{ r.name | lower }}" data-roll="{{ r.roll_number }}">
+                                    <td>
+                                        <div class="d-flex align-items-center gap-2">
+                                            <img src="{{ r.profile_photo or '/static/profiles/' ~ r.roll_number ~ '.jpg' }}" class="rounded-circle border" width="34" height="34" style="object-fit: cover;" onerror="this.src='https://ui-avatars.com/api/?name={{ r.name | urlencode }}&background=0a192f&color=64ffda'">
+                                            <span class="fw-semibold text-dark">{{ r.name }}</span>
+                                        </div>
+                                    </td>
+                                    <td class="fw-bold">{{ r.roll_number }}</td>
+                                    <td><span class="badge bg-light text-dark border">{{ r.section or 'Section A' }}</span></td>
+                                    <td>
+                                        {% if r.status == 'PRESENT' %}
+                                        <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1"><i class="fa-solid fa-circle-check me-1"></i>PRESENT</span>
+                                        {% elif r.status == 'CHECKED_OUT' %}
+                                        <span class="badge bg-warning-subtle text-warning border border-warning-subtle px-2 py-1"><i class="fa-solid fa-door-open me-1"></i>CHECKED OUT</span>
+                                        {% else %}
+                                        <span class="badge bg-secondary-subtle text-secondary border px-2 py-1"><i class="fa-solid fa-user-xmark me-1"></i>ABSENT</span>
+                                        {% endif %}
+                                    </td>
+                                    <td><small class="text-muted">{{ r.first_check_in or '-' }}</small></td>
+                                    <td><small class="text-muted">{{ r.last_seen or '-' }}</small></td>
+                                    <td><span class="badge bg-primary-subtle text-primary">{{ r.duration_formatted or '0m 0s' }}</span></td>
+                                    <td>
+                                        {% if r.exit_count > 0 %}
+                                        <span class="badge bg-warning text-dark">{{ r.exit_count }}</span>
+                                        {% else %}
+                                        <span class="text-muted">0</span>
+                                        {% endif %}
+                                    </td>
+                                    <td><small class="text-muted">{{ r.verification_method or '-' }}</small></td>
+                                    <td class="text-end">
+                                        <button class="btn btn-sm btn-outline-primary teacher-correct-btn"
+                                                data-session="{{ active_session.session_id if active_session else '' }}"
+                                                data-roll="{{ r.roll_number }}"
+                                                data-name="{{ r.name }}"
+                                                data-status="{{ r.status }}">
+                                            <i class="fa-solid fa-user-pen me-1"></i>Correct
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            {% else %}
+                                <tr>
+                                    <td colspan="10" class="text-center py-4 text-muted">
+                                        <i class="fa-regular fa-clipboard me-2"></i>No enrolled students found in this section. Start a session to load students.
+                                    </td>
+                                </tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Attendance Entry / Exit Events Feed -->
+        <div class="card-custom">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="fa-solid fa-timeline me-2 text-secondary"></i>Attendance Events & Audit Trail</span>
+                <span class="badge bg-light text-dark border">{{ events|length }} Events Logged</span>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive" style="max-height: 280px; overflow-y: auto;">
+                    <table class="table table-custom table-hover align-middle mb-0">
+                        <thead class="table-light sticky-top">
+                            <tr>
+                                <th>Timestamp</th>
+                                <th>Student Name</th>
+                                <th>Roll Number</th>
+                                <th>Event Type</th>
+                                <th>Details / Audit Reason</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% if events %}
+                                {% for ev in events %}
+                                <tr>
+                                    <td><small class="text-muted fw-semibold">{{ ev.timestamp }}</small></td>
+                                    <td class="fw-bold text-dark">{{ ev.name }}</td>
+                                    <td>{{ ev.roll_number }}</td>
+                                    <td>
+                                        {% if ev.event_type == 'CHECK_IN' %}
+                                        <span class="badge bg-success-subtle text-success"><i class="fa-solid fa-arrow-right-to-bracket me-1"></i>CHECK-IN</span>
+                                        {% elif ev.event_type == 'EXIT' %}
+                                        <span class="badge bg-warning-subtle text-warning"><i class="fa-solid fa-arrow-right-from-bracket me-1"></i>EXIT</span>
+                                        {% elif ev.event_type == 'RETURN' %}
+                                        <span class="badge bg-info-subtle text-info"><i class="fa-solid fa-rotate-left me-1"></i>RETURN</span>
+                                        {% elif ev.event_type == 'MANUAL_OVERRIDE' %}
+                                        <span class="badge bg-primary-subtle text-primary"><i class="fa-solid fa-user-pen me-1"></i>MANUAL OVERRIDE</span>
+                                        {% else %}
+                                        <span class="badge bg-secondary-subtle text-secondary">{{ ev.event_type }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td><small class="text-muted">{{ ev.details or '-' }}</small></td>
+                                    <td><span class="text-success small"><i class="fa-solid fa-circle-check me-1"></i>Verified</span></td>
+                                </tr>
+                                {% endfor %}
+                            {% else %}
+                                <tr>
+                                    <td colspan="6" class="text-center py-4 text-muted">No attendance events logged yet for this session.</td>
+                                </tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- ========================================================================= -->
+    <!-- MODULE 2: SESSION MANAGER                                                 -->
+    <!-- ========================================================================= -->
+    <div class="tab-pane fade" id="session-manager-pane" role="tabpanel">
+        <div class="row g-4">
+            <!-- Create & Start New Session Card -->
+            <div class="col-lg-5">
+                <div class="card-custom h-100">
+                    <div class="card-header">
+                        <span><i class="fa-solid fa-plus-circle me-2 text-primary"></i>Create & Start Class Session</span>
+                    </div>
+                    <div class="card-body">
+                        <form id="createSessionForm">
+                            <div class="mb-3">
+                                <label class="form-label small fw-semibold text-muted">Academic Year <span class="text-danger">*</span></label>
+                                <select class="form-select" id="sessAcademicYear" required>
+                                    <option value="2026-2027" selected>2026-2027</option>
+                                    <option value="2025-2026">2025-2026</option>
+                                </select>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label small fw-semibold text-muted">Authorized Class & Section <span class="text-danger">*</span></label>
+                                <select class="form-select" id="sessClassSelect" required>
+                                    {% if classes %}
+                                        {% for c in classes %}
+                                        <option value="{{ c.class_name }}|{{ c.section }}|{{ c.department }}">
+                                            {{ c.class_name }} — {{ c.section }} ({{ c.department }})
+                                        </option>
+                                        {% endfor %}
+                                    {% else %}
+                                        <option value="B.Tech Year 3|Section A|Computer Science & Engineering">B.Tech Year 3 — Section A (CSE)</option>
+                                        <option value="B.Tech Year 3|Section B|Information Technology">B.Tech Year 3 — Section B (IT)</option>
+                                    {% endif %}
+                                </select>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label small fw-semibold text-muted">Authorized Subject <span class="text-danger">*</span></label>
+                                <select class="form-select" id="sessSubjectSelect" required>
+                                    {% if subjects %}
+                                        {% for s in subjects %}
+                                        <option value="{{ s.subject_name }}">{{ s.subject_name }} ({{ s.subject_code or 'Core' }})</option>
+                                        {% endfor %}
+                                    {% else %}
+                                        <option value="Machine Learning & AI">Machine Learning & AI</option>
+                                        <option value="Robotics & Vision">Robotics & Vision</option>
+                                        <option value="Computer Networks">Computer Networks</option>
+                                    {% endif %}
+                                </select>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label small fw-semibold text-muted">Authorized Teacher Name <span class="text-danger">*</span></label>
+                                <select class="form-select" id="sessFacultySelect" required>
+                                    {% if teachers %}
+                                        {% for t in teachers %}
+                                        <option value="{{ t.name }}" {% if t.name == current_user.name %}selected{% endif %}>{{ t.name }} ({{ t.department }})</option>
+                                        {% endfor %}
+                                    {% else %}
+                                        <option value="{{ current_user.name }}">{{ current_user.name }}</option>
+                                        <option value="Prof. Sharma">Prof. Sharma</option>
+                                    {% endif %}
+                                </select>
+                            </div>
+
+                            <div class="alert alert-info py-2 small mb-3">
+                                <i class="fa-solid fa-shield-halved me-1 text-primary"></i>
+                                <strong>Duplicate Prevention:</strong> Attendance entries are unique per student per session. Re-entry does not create duplicate rows.
+                            </div>
+
+                            <button type="submit" class="btn btn-primary w-100 py-2 fw-semibold" id="startSessionSubmitBtn">
+                                <i class="fa-solid fa-play me-2"></i>Start Class Session Now
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recent Sessions History -->
+            <div class="col-lg-7">
+                <div class="card-custom h-100">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <span><i class="fa-solid fa-clock-rotate-left me-2 text-primary"></i>Classroom Sessions History</span>
+                        <span class="badge bg-light text-dark border">{{ sessions|length }} Recorded</span>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="table-responsive" style="max-height: 480px; overflow-y: auto;">
+                            <table class="table table-custom table-hover align-middle mb-0">
+                                <thead class="table-light sticky-top">
+                                    <tr>
+                                        <th>Subject & Class</th>
+                                        <th>Faculty</th>
+                                        <th>Date & Start</th>
+                                        <th>Status</th>
+                                        <th class="text-end">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% if sessions %}
+                                        {% for s in sessions %}
+                                        <tr>
+                                            <td>
+                                                <div class="fw-bold text-dark">{{ s.subject }}</div>
+                                                <small class="text-muted">{{ s.class_name }} ({{ s.section }})</small>
+                                            </td>
+                                            <td><small class="text-dark">{{ s.faculty_name }}</small></td>
+                                            <td>
+                                                <div class="small fw-semibold">{{ s.session_start_time.split()[0] if ' ' in s.session_start_time else s.session_start_time }}</div>
+                                                <small class="text-muted">{{ s.session_start_time.split()[1] if ' ' in s.session_start_time else '' }}</small>
+                                            </td>
+                                            <td>
+                                                {% if s.status == 'ACTIVE' %}
+                                                <span class="badge bg-success"><i class="fa-solid fa-circle-dot me-1"></i>Active</span>
+                                                {% else %}
+                                                <span class="badge bg-secondary">Completed</span>
+                                                {% endif %}
+                                            </td>
+                                            <td class="text-end">
+                                                <a href="/export/session_csv/{{ s.session_id }}" class="btn btn-sm btn-outline-secondary" title="Export CSV Report">
+                                                    <i class="fa-solid fa-file-csv"></i>
+                                                </a>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    {% else %}
+                                        <tr><td colspan="5" class="text-center py-4 text-muted">No session history found.</td></tr>
+                                    {% endif %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<!-- Manual Teacher Correction Modal -->
+<div class="modal fade" id="teacherCorrectionModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fa-solid fa-user-pen text-primary me-2"></i>Teacher Attendance Correction</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="modalCorrSessionId">
+                <input type="hidden" id="modalCorrRoll">
+                <p>Modify session attendance for: <strong id="modalCorrName" class="text-dark"></strong> (Roll: <span id="modalCorrRollDisplay"></span>)</p>
+
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Attendance Status</label>
+                    <select class="form-select" id="modalCorrStatusSelect">
+                        <option value="PRESENT">PRESENT</option>
+                        <option value="CHECKED_OUT">CHECKED_OUT</option>
+                        <option value="ABSENT">ABSENT</option>
+                    </select>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Audit Log Reason <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control" id="modalCorrReasonInput" value="In-person verification by instructor" required>
+                    <small class="text-muted">This override is permanently recorded in the session audit trail.</small>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="saveTeacherCorrectionBtn">Save Override</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+function switchMainTab(tabId) {
+    const tabEl = document.getElementById(tabId);
+    if (tabEl) {
+        const tab = new bootstrap.Tab(tabEl);
+        tab.show();
+    }
+}
+
+function switchSessionView(sessId) {
+    if (sessId) {
+        window.location.href = '/?session_id=' + encodeURIComponent(sessId);
+    } else {
+        window.location.href = '/';
+    }
+}
+
+// Roster Filter (All, Present, Absent)
+function filterRoster(filterType) {
+    document.querySelectorAll('#filterAllBtn, #filterPresentBtn, #filterAbsentBtn').forEach(b => b.classList.remove('active'));
+    if (filterType === 'ALL') document.getElementById('filterAllBtn').classList.add('active');
+    if (filterType === 'PRESENT') document.getElementById('filterPresentBtn').classList.add('active');
+    if (filterType === 'ABSENT') document.getElementById('filterAbsentBtn').classList.add('active');
+
+    const rows = document.querySelectorAll('.roster-row');
+    rows.forEach(r => {
+        const st = r.dataset.status;
+        if (filterType === 'ALL') {
+            r.style.display = '';
+        } else if (filterType === 'PRESENT') {
+            r.style.display = (st === 'PRESENT' || st === 'CHECKED_OUT') ? '' : 'none';
+        } else if (filterType === 'ABSENT') {
+            r.style.display = (st === 'ABSENT') ? '' : 'none';
+        }
+    });
+}
+
+// Search Filter
+document.getElementById('searchRosterInput').addEventListener('keyup', (e) => {
+    const q = e.target.value.toLowerCase().trim();
+    document.querySelectorAll('.roster-row').forEach(r => {
+        const text = (r.dataset.name + ' ' + r.dataset.roll).toLowerCase();
+        r.style.display = text.includes(q) ? '' : 'none';
+    });
+});
+
+// Toggle Scanner View
+function toggleCameraScanner(show) {
+    const body = document.getElementById('scannerCollapseBody');
+    if (show !== undefined) {
+        body.style.display = show ? 'block' : 'none';
+    } else {
+        body.style.display = body.style.display === 'none' ? 'block' : 'none';
+    }
+}
+document.getElementById('toggleScannerBtn').addEventListener('click', () => toggleCameraScanner());
+
+// Create Session Form
+document.getElementById('createSessionForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const ay = document.getElementById('sessAcademicYear').value;
+    const classVal = document.getElementById('sessClassSelect').value.split('|');
+    const className = classVal[0];
+    const section = classVal[1];
+    const dept = classVal[2];
+    const subject = document.getElementById('sessSubjectSelect').value;
+    const faculty = document.getElementById('sessFacultySelect').value;
+
+    const btn = document.getElementById('startSessionSubmitBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Starting Session...';
+
+    try {
+        const resp = await fetch('/api/sessions/create', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                academic_year: ay,
+                department: dept,
+                class_name: className,
+                section: section,
+                subject: subject,
+                faculty_name: faculty
+            })
+        });
+        const data = await resp.json();
+        if (data.success) {
+            showToast(data.message, 'success');
+            setTimeout(() => window.location.reload(), 1000);
+        } else {
+            showToast(data.message, 'danger');
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa-solid fa-play me-2"></i>Start Class Session Now';
+        }
+    } catch (err) {
+        showToast('Error starting session: ' + err.message, 'danger');
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-play me-2"></i>Start Class Session Now';
+    }
+});
+
+// End Session
+const endSessionBtn = document.getElementById('endSessionBtn');
+if (endSessionBtn) {
+    endSessionBtn.addEventListener('click', async () => {
+        if (!confirm('Are you sure you want to conclude the active classroom session?')) return;
+        try {
+            const resp = await fetch('/api/sessions/end', { method: 'POST' });
+            const data = await resp.json();
+            if (data.success) {
+                showToast(data.message, 'info');
+                setTimeout(() => window.location.reload(), 1000);
+            }
+        } catch (err) {
+            showToast('Error ending session: ' + err.message, 'danger');
+        }
+    });
+}
+
+// Teacher Attendance Correction Modal
+const corrModal = new bootstrap.Modal(document.getElementById('teacherCorrectionModal'));
+const modalCorrSessionId = document.getElementById('modalCorrSessionId');
+const modalCorrRoll = document.getElementById('modalCorrRoll');
+const modalCorrName = document.getElementById('modalCorrName');
+const modalCorrRollDisplay = document.getElementById('modalCorrRollDisplay');
+const modalCorrStatusSelect = document.getElementById('modalCorrStatusSelect');
+const modalCorrReasonInput = document.getElementById('modalCorrReasonInput');
+const saveTeacherCorrectionBtn = document.getElementById('saveTeacherCorrectionBtn');
+
+document.querySelectorAll('.teacher-correct-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        modalCorrSessionId.value = btn.dataset.session;
+        modalCorrRoll.value = btn.dataset.roll;
+        modalCorrName.innerText = btn.dataset.name;
+        modalCorrRollDisplay.innerText = btn.dataset.roll;
+        modalCorrStatusSelect.value = btn.dataset.status;
+        corrModal.show();
+    });
+});
+
+saveTeacherCorrectionBtn.addEventListener('click', async () => {
+    const sessId = modalCorrSessionId.value;
+    const roll = modalCorrRoll.value;
+    const status = modalCorrStatusSelect.value;
+    const reason = modalCorrReasonInput.value.trim();
+
+    if (!reason) {
+        showToast('Please provide an audit reason for this override.', 'warning');
+        return;
+    }
+
+    try {
+        const resp = await fetch('/api/attendance/correct', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                session_id: sessId,
+                roll_number: roll,
+                status: status,
+                reason: reason
+            })
+        });
+        const data = await resp.json();
+        if (data.success) {
+            showToast(data.message, 'success');
+            corrModal.hide();
+            setTimeout(() => window.location.reload(), 800);
+        } else {
+            showToast(data.message, 'danger');
+        }
+    } catch (err) {
+        showToast('Correction error: ' + err.message, 'danger');
+    }
+});
+
+// Instantiate Classroom Camera Scanner
+let cameraScannerInstance = null;
+document.addEventListener('DOMContentLoaded', () => {
+    if (typeof ClassroomCameraScanner === 'function') {
+        cameraScannerInstance = new ClassroomCameraScanner({
+            sessionId: '{{ active_session.session_id if active_session else "" }}',
+            processingIntervalMs: 250,
+            idealWidth: 1280,
+            idealHeight: 720
+        });
+        cameraScannerInstance.initUI();
+    }
+});
+</script>
+{% endblock %}

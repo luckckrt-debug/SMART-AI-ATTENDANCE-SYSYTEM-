@@ -1,0 +1,227 @@
+{% extends "base.html" %}
+
+{% block title %}Database Architecture & Status - Smart Attendance System{% endblock %}
+{% block page_title %}Database Engine & Persistence Architecture{% endblock %}
+
+{% block content %}
+<div class="row g-4 mb-4">
+    <!-- Primary Engine & Connection Panel -->
+    <div class="col-lg-6">
+        <div class="card-custom h-100">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="fa-solid fa-server me-2 text-primary"></i>Active Persistence Engine</span>
+                <span class="badge {% if health.db.is_mongo_connected %}bg-success{% else %}bg-primary{% endif %} px-3 py-2">
+                    {{ health.db.mode }} Active
+                </span>
+            </div>
+            <div class="card-body">
+                <div class="mb-4">
+                    <h6 class="text-uppercase text-muted fw-bold small">Current Connection Status</h6>
+                    <div class="alert {% if health.db.is_mongo_connected %}alert-success{% else %}alert-warning{% endif %} d-flex align-items-start gap-3 mb-2">
+                        <i class="fa-solid {% if health.db.is_mongo_connected %}fa-circle-check text-success{% else %}fa-triangle-exclamation text-warning{% endif %} fs-3 mt-1"></i>
+                        <div>
+                            <strong>{{ health.db.status_message }}</strong>
+                            <div class="small mt-1">
+                                {% if health.db.is_mongo_connected %}
+                                Connected to live MongoDB instance at <code>{{ health.db.mongo_uri }}</code> (Database: <code>{{ health.db.mongo_db }}</code>).
+                                {% else %}
+                                Local SQLite persistence is actively operating at <code>{{ health.db.sqlite_path }}</code> with full schema parity and zero data loss. MongoDB server was not detected on <code>{{ health.db.mongo_uri }}</code>.
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- MongoDB Connection Configuration -->
+                <div class="mb-3">
+                    <label class="form-label small fw-semibold text-muted">Configured MongoDB URI</label>
+                    <div class="input-group">
+                        <input type="text" class="form-control font-monospace" id="mongoUriInput" value="{{ health.db.mongo_uri }}">
+                        <button class="btn btn-outline-primary" type="button" id="testMongoBtn">
+                            <i class="fa-solid fa-bolt me-1"></i> Test Connection
+                        </button>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label small fw-semibold text-muted">Database Name</label>
+                    <input type="text" class="form-control" id="mongoDbInput" value="{{ health.db.mongo_db }}">
+                </div>
+
+                <div class="mb-4">
+                    <label class="form-label small fw-semibold text-muted">Local SQLite Fallback Path</label>
+                    <input type="text" class="form-control font-monospace" value="{{ health.db.sqlite_path }}" readonly>
+                </div>
+
+                <div class="d-flex gap-2">
+                    <button type="button" class="btn btn-outline-secondary w-100" id="syncCsvBtn">
+                        <i class="fa-solid fa-arrows-rotate me-2"></i>Sync Records from Students_Enrollment.csv
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MongoDB Configuration & Setup Guide -->
+    <div class="col-lg-6">
+        <div class="card-custom h-100">
+            <div class="card-header">
+                <span><i class="fa-solid fa-book-bookmark me-2 text-primary"></i>MongoDB Configuration & Setup Guide</span>
+            </div>
+            <div class="card-body">
+                <p class="small text-muted mb-3">To connect the application to an active MongoDB database instead of the local SQLite storage engine, follow these steps:</p>
+
+                <div class="accordion" id="mongoGuideAccordion">
+                    <div class="accordion-item">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button py-2 small fw-semibold" type="button" data-bs-toggle="collapse" data-bs-target="#collapseOne">
+                                Step 1: Install or Start Local MongoDB Community Server
+                            </button>
+                        </h2>
+                        <div id="collapseOne" class="accordion-collapse collapse show">
+                            <div class="accordion-body small text-muted">
+                                If you have MongoDB installed on Windows, start the service:
+                                <pre class="bg-light p-2 rounded mt-2 text-dark font-monospace">net start MongoDB</pre>
+                                Or start <code>mongod</code> manually:
+                                <pre class="bg-light p-2 rounded mt-2 text-dark font-monospace">mongod --dbpath "C:\data\db"</pre>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="accordion-item">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button collapsed py-2 small fw-semibold" type="button" data-bs-toggle="collapse" data-bs-target="#collapseTwo">
+                                Step 2: Use MongoDB Atlas (Cloud Database)
+                            </button>
+                        </h2>
+                        <div id="collapseTwo" class="accordion-collapse collapse">
+                            <div class="accordion-body small text-muted">
+                                If using MongoDB Atlas, place your connection string in <code>.env</code>:
+                                <pre class="bg-light p-2 rounded mt-2 text-dark font-monospace">MONGO_URI=mongodb+srv://&lt;username&gt;:&lt;password&gt;@cluster0.mongodb.net/?retryWrites=true&w=majority</pre>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="accordion-item">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button collapsed py-2 small fw-semibold" type="button" data-bs-toggle="collapse" data-bs-target="#collapseThree">
+                                Step 3: Zero Data Loss Synchronization
+                            </button>
+                        </h2>
+                        <div id="collapseThree" class="accordion-collapse collapse">
+                            <div class="accordion-body small text-muted">
+                                When you reconnect to MongoDB, the system automatically runs <code>_sync_sqlite_to_mongo()</code> to copy all student profiles, classroom sessions, and attendance records into MongoDB.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Collections & Storage Tables -->
+<div class="card-custom">
+    <div class="card-header">
+        <span><i class="fa-solid fa-folder-tree me-2 text-primary"></i>Managed Collections & Schemas</span>
+        <span class="badge bg-light text-dark border">5 Primary Collections</span>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-custom table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Collection Name</th>
+                        <th>Unique Index / Constraint</th>
+                        <th>Purpose & Description</th>
+                        <th>Storage Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td class="fw-bold"><i class="fa-solid fa-users text-primary me-2"></i>Students</td>
+                        <td><code>roll_number (Unique)</code></td>
+                        <td>Student profiles, names, departments, sections, profile photos, and consent status</td>
+                        <td><span class="badge bg-success-subtle text-success">{{ health.stats.total_students }} Enrolled</span></td>
+                    </tr>
+                    <tr>
+                        <td class="fw-bold"><i class="fa-solid fa-chalkboard-user text-info me-2"></i>Classroom_Sessions</td>
+                        <td><code>session_id (Unique)</code></td>
+                        <td>Academic year, department, class, section, subject, faculty name, start/end timestamps</td>
+                        <td><span class="badge bg-info-subtle text-info">Managed</span></td>
+                    </tr>
+                    <tr>
+                        <td class="fw-bold"><i class="fa-solid fa-clipboard-check text-success me-2"></i>Attendance</td>
+                        <td><code>(session_id, roll_number) (Unique)</code></td>
+                        <td>Session attendance status, first check-in, last seen, verified duration, exit counts</td>
+                        <td><span class="badge bg-success-subtle text-success">Duplicate-Protected</span></td>
+                    </tr>
+                    <tr>
+                        <td class="fw-bold"><i class="fa-solid fa-timeline text-secondary me-2"></i>Session_Events</td>
+                        <td><code>event_id (PK)</code></td>
+                        <td>Audit trail for <code>CHECK_IN</code>, <code>EXIT</code>, <code>RETURN</code>, and <code>MANUAL_OVERRIDE</code></td>
+                        <td><span class="badge bg-secondary-subtle text-secondary">Logged</span></td>
+                    </tr>
+                    <tr>
+                        <td class="fw-bold"><i class="fa-solid fa-bell text-warning me-2"></i>System_Notifications</td>
+                        <td><code>notification_id (PK)</code></td>
+                        <td>Neutral informational notifications to teachers regarding repeated classroom departures</td>
+                        <td><span class="badge bg-warning-subtle text-warning">Active</span></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+// Test & Reconnect MongoDB
+document.getElementById('testMongoBtn').addEventListener('click', async () => {
+    const uri = document.getElementById('mongoUriInput').value.trim();
+    const dbName = document.getElementById('mongoDbInput').value.trim();
+    const btn = document.getElementById('testMongoBtn');
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Testing...';
+
+    try {
+        const resp = await fetch('/api/db/test_mongo', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ mongo_uri: uri, mongo_db: dbName })
+        });
+        const data = await resp.json();
+        if (data.success) {
+            showToast(data.message, 'success');
+            setTimeout(() => window.location.reload(), 1200);
+        } else {
+            showToast(data.message, 'warning');
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa-solid fa-bolt me-1"></i> Test Connection';
+        }
+    } catch (e) {
+        showToast('Connection test error: ' + e.message, 'danger');
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-bolt me-1"></i> Test Connection';
+    }
+});
+
+// CSV Sync
+document.getElementById('syncCsvBtn').addEventListener('click', async () => {
+    try {
+        const resp = await fetch('/api/db/sync_csv', { method: 'POST' });
+        const data = await resp.json();
+        if (data.success) {
+            showToast(data.message, 'success');
+            setTimeout(() => window.location.reload(), 1000);
+        } else {
+            showToast(data.message, 'danger');
+        }
+    } catch (e) {
+        showToast('Sync request error: ' + e.message, 'danger');
+    }
+});
+</script>
+{% endblock %}

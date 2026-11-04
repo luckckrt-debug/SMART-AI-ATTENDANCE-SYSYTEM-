@@ -1,0 +1,548 @@
+{% extends "base.html" %}
+
+{% block title %}Attendance Records & Classroom Analytics - Smart Attendance System{% endblock %}
+{% block page_title %}Session Attendance Records & Event Analytics{% endblock %}
+
+{% block content %}
+<!-- Session Selector & Quick Export Header -->
+<div class="card-custom mb-4">
+    <div class="card-body p-3">
+        <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
+            <div class="d-flex align-items-center gap-2 flex-grow-1" style="max-width: 600px;">
+                <label for="sessionSelect" class="fw-bold text-nowrap text-dark"><i class="fa-solid fa-chalkboard-user text-primary me-2"></i>Select Session:</label>
+                <select class="form-select form-select-sm" id="sessionSelect" onchange="switchSession(this.value)">
+                    {% if all_sessions %}
+                        {% for s in all_sessions %}
+                        <option value="{{ s.session_id }}" {% if s.session_id == selected_session_id %}selected{% endif %}>
+                            {{ s.subject }} ({{ s.section }}) - {{ s.faculty_name }} [{{ s.created_at }}] {% if s.status == 'ACTIVE' %}★ ACTIVE{% endif %}
+                        </option>
+                        {% endfor %}
+                    {% else %}
+                        <option value="">No sessions found</option>
+                    {% endif %}
+                </select>
+            </div>
+
+            <div class="d-flex gap-2 flex-wrap">
+                {% if selected_session_id %}
+                <a href="/export/session_csv/{{ selected_session_id }}" class="btn btn-sm btn-primary">
+                    <i class="fa-solid fa-file-csv me-1"></i> Export Session CSV
+                </a>
+                {% endif %}
+                <div class="dropdown">
+                    <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                        <i class="fa-solid fa-download me-1"></i> Other CSV Exports
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end shadow-sm">
+                        <li><a class="dropdown-item" href="{{ url_for('export_csv_route', subject='Hindi') }}"><i class="fa-solid fa-book me-2"></i>Hindi CSV</a></li>
+                        <li><a class="dropdown-item" href="{{ url_for('export_csv_route', subject='English') }}"><i class="fa-solid fa-language me-2"></i>English CSV</a></li>
+                        <li><a class="dropdown-item" href="{{ url_for('export_csv_route', subject='Enrollment') }}"><i class="fa-solid fa-users me-2"></i>Students Enrollment CSV</a></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        {% if selected_session %}
+        <div class="mt-3 pt-3 border-top d-flex flex-wrap gap-4 text-muted small">
+            <div><strong class="text-dark">Subject:</strong> {{ selected_session.subject }}</div>
+            <div><strong class="text-dark">Department:</strong> {{ selected_session.department }}</div>
+            <div><strong class="text-dark">Class & Section:</strong> {{ selected_session.class_name }} - {{ selected_session.section }}</div>
+            <div><strong class="text-dark">Faculty:</strong> {{ selected_session.faculty_name }}</div>
+            <div><strong class="text-dark">Started:</strong> {{ selected_session.session_start_time }}</div>
+            <div><strong class="text-dark">Status:</strong> 
+                {% if selected_session.status == 'ACTIVE' %}
+                <span class="badge bg-success"><i class="fa-solid fa-circle-dot me-1"></i>Active</span>
+                {% else %}
+                <span class="badge bg-secondary">Completed</span>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<div class="card-custom">
+    <div class="card-header flex-wrap gap-2">
+        <!-- Navigation Tabs -->
+        <ul class="nav nav-pills" id="recordsTab" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="session-roster-tab" data-bs-toggle="pill" data-bs-target="#session-roster-pane" type="button" role="tab">
+                    <i class="fa-solid fa-user-check me-1"></i> Session Roster & Duration ({{ roster|length }})
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="session-events-tab" data-bs-toggle="pill" data-bs-target="#session-events-pane" type="button" role="tab">
+                    <i class="fa-solid fa-door-open me-1"></i> Entry / Exit Events ({{ events|length }})
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="hindi-tab" data-bs-toggle="pill" data-bs-target="#hindi-pane" type="button" role="tab">
+                    <i class="fa-solid fa-book me-1"></i> Hindi Attendance ({{ hindi_records|length }})
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="english-tab" data-bs-toggle="pill" data-bs-target="#english-pane" type="button" role="tab">
+                    <i class="fa-solid fa-language me-1"></i> English Attendance ({{ english_records|length }})
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="logs-tab" data-bs-toggle="pill" data-bs-target="#logs-pane" type="button" role="tab">
+                    <i class="fa-solid fa-list-check me-1"></i> Audit Logs ({{ logs|length }})
+                </button>
+            </li>
+        </ul>
+    </div>
+
+    <div class="card-body p-0">
+        <div class="tab-content" id="recordsTabContent">
+            
+            <!-- 1. Session Attendance & Duration Analytics Tab -->
+            <div class="tab-pane fade show active" id="session-roster-pane" role="tabpanel">
+                <div class="p-3 border-bottom bg-light d-flex justify-content-between align-items-center">
+                    <input type="text" class="form-control form-control-sm w-50" id="searchRoster" placeholder="Search by student name or roll number...">
+                    <small class="text-muted"><i class="fa-solid fa-shield-halved text-success me-1"></i>Consent-verified records only</small>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-custom table-hover align-middle mb-0" id="rosterTable">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Student</th>
+                                <th>Roll Number</th>
+                                <th>Section</th>
+                                <th>Attendance Status</th>
+                                <th>First Check-In</th>
+                                <th>Last Seen</th>
+                                <th>Verified Duration</th>
+                                <th>Exits</th>
+                                <th>Method</th>
+                                <th class="text-end">Teacher Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% if roster %}
+                                {% for r in roster %}
+                                <tr>
+                                    <td>
+                                        <div class="d-flex align-items-center gap-2">
+                                            <img src="{{ r.profile_photo }}" class="rounded-circle border" width="34" height="34" style="object-fit: cover;" onerror="this.src='https://ui-avatars.com/api/?name={{ r.name | urlencode }}&background=0a192f&color=64ffda'">
+                                            <span class="fw-semibold text-dark">{{ r.name }}</span>
+                                        </div>
+                                    </td>
+                                    <td class="fw-bold">{{ r.roll_number }}</td>
+                                    <td><span class="badge bg-light text-dark border">{{ r.section }}</span></td>
+                                    <td>
+                                        {% if r.status == 'PRESENT' %}
+                                        <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1"><i class="fa-solid fa-circle-check me-1"></i>PRESENT</span>
+                                        {% elif r.status == 'CHECKED_OUT' %}
+                                        <span class="badge bg-warning-subtle text-warning border border-warning-subtle px-2 py-1"><i class="fa-solid fa-door-open me-1"></i>CHECKED OUT</span>
+                                        {% else %}
+                                        <span class="badge bg-secondary-subtle text-secondary border px-2 py-1"><i class="fa-solid fa-user-xmark me-1"></i>ABSENT</span>
+                                        {% endif %}
+                                    </td>
+                                    <td><small class="text-muted">{{ r.first_check_in or '-' }}</small></td>
+                                    <td><small class="text-muted">{{ r.last_seen or '-' }}</small></td>
+                                    <td><span class="badge bg-primary-subtle text-primary">{{ r.duration_formatted }}</span></td>
+                                    <td>
+                                        {% if r.exit_count > 0 %}
+                                        <span class="badge bg-warning text-dark">{{ r.exit_count }}</span>
+                                        {% else %}
+                                        <span class="text-muted">0</span>
+                                        {% endif %}
+                                    </td>
+                                    <td><small class="text-muted">{{ r.verification_method or '-' }}</small></td>
+                                    <td class="text-end">
+                                        <button class="btn btn-sm btn-outline-primary correction-modal-btn"
+                                                data-session="{{ selected_session_id }}"
+                                                data-roll="{{ r.roll_number }}"
+                                                data-name="{{ r.name }}"
+                                                data-status="{{ r.status }}">
+                                            <i class="fa-solid fa-pen-to-square me-1"></i>Correct
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            {% else %}
+                                <tr>
+                                    <td colspan="10" class="text-center py-4 text-muted">
+                                        <i class="fa-regular fa-clipboard me-2"></i>No records found for the selected session.
+                                    </td>
+                                </tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- 2. Session Entry / Exit Events Tab -->
+            <div class="tab-pane fade" id="session-events-pane" role="tabpanel">
+                <div class="p-3 border-bottom bg-light">
+                    <input type="text" class="form-control form-control-sm w-50" id="searchEvents" placeholder="Filter events by roll or student name...">
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-custom table-hover align-middle mb-0" id="eventsTable">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Timestamp</th>
+                                <th>Student</th>
+                                <th>Roll Number</th>
+                                <th>Event Type</th>
+                                <th>Details / Note</th>
+                                <th>Verified</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% if events %}
+                                {% for ev in events %}
+                                <tr>
+                                    <td><small class="text-muted fw-semibold">{{ ev.timestamp }}</small></td>
+                                    <td class="fw-bold text-dark">{{ ev.name }}</td>
+                                    <td>{{ ev.roll_number }}</td>
+                                    <td>
+                                        {% if ev.event_type == 'CHECK_IN' %}
+                                        <span class="badge bg-success-subtle text-success"><i class="fa-solid fa-arrow-right-to-bracket me-1"></i>CHECK-IN</span>
+                                        {% elif ev.event_type == 'EXIT' %}
+                                        <span class="badge bg-warning-subtle text-warning"><i class="fa-solid fa-arrow-right-from-bracket me-1"></i>EXIT</span>
+                                        {% elif ev.event_type == 'RETURN' %}
+                                        <span class="badge bg-info-subtle text-info"><i class="fa-solid fa-rotate-left me-1"></i>RETURN</span>
+                                        {% else %}
+                                        <span class="badge bg-secondary-subtle text-secondary">{{ ev.event_type }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td><small class="text-muted">{{ ev.details or '-' }}</small></td>
+                                    <td>
+                                        {% if ev.verified %}
+                                        <span class="text-success"><i class="fa-solid fa-circle-check"></i> Yes</span>
+                                        {% else %}
+                                        <span class="text-muted">Unverified</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            {% else %}
+                                <tr>
+                                    <td colspan="6" class="text-center py-4 text-muted">No entry/exit events logged for this session.</td>
+                                </tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- 3. Hindi Legacy Tab -->
+            <div class="tab-pane fade" id="hindi-pane" role="tabpanel">
+                <div class="p-3 border-bottom bg-light">
+                    <input type="text" class="form-control form-control-sm w-50" id="searchHindi" placeholder="Search Hindi records...">
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-custom table-hover align-middle mb-0" id="hindiTable">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Roll Number</th>
+                                <th>Student Name</th>
+                                <th>Attendance Count</th>
+                                <th>Last Marked</th>
+                                <th class="text-end">Manual Edit</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% if hindi_records %}
+                                {% for r in hindi_records %}
+                                <tr>
+                                    <td class="fw-bold">{{ r.roll_number }}</td>
+                                    <td>{{ r.name }}</td>
+                                    <td>
+                                        <span class="badge {% if r.attendance_count > 0 %}bg-success{% else %}bg-secondary{% endif %} fs-6" id="val-hindi-{{ r.roll_number }}">
+                                            {{ r.attendance_count }}
+                                        </span>
+                                    </td>
+                                    <td><small class="text-muted">{{ r.last_marked or 'Not marked yet' }}</small></td>
+                                    <td class="text-end">
+                                        <button class="btn btn-sm btn-outline-secondary edit-modal-btn" data-subject="Hindi" data-roll="{{ r.roll_number }}" data-name="{{ r.name }}" data-count="{{ r.attendance_count }}">
+                                            <i class="fa-solid fa-pen-to-square me-1"></i>Edit
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            {% else %}
+                                <tr><td colspan="5" class="text-center py-4 text-muted">No records found.</td></tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- 4. English Legacy Tab -->
+            <div class="tab-pane fade" id="english-pane" role="tabpanel">
+                <div class="p-3 border-bottom bg-light">
+                    <input type="text" class="form-control form-control-sm w-50" id="searchEnglish" placeholder="Search English records...">
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-custom table-hover align-middle mb-0" id="englishTable">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Roll Number</th>
+                                <th>Student Name</th>
+                                <th>Attendance Count</th>
+                                <th>Last Marked</th>
+                                <th class="text-end">Manual Edit</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% if english_records %}
+                                {% for r in english_records %}
+                                <tr>
+                                    <td class="fw-bold">{{ r.roll_number }}</td>
+                                    <td>{{ r.name }}</td>
+                                    <td>
+                                        <span class="badge {% if r.attendance_count > 0 %}bg-success{% else %}bg-secondary{% endif %} fs-6" id="val-english-{{ r.roll_number }}">
+                                            {{ r.attendance_count }}
+                                        </span>
+                                    </td>
+                                    <td><small class="text-muted">{{ r.last_marked or 'Not marked yet' }}</small></td>
+                                    <td class="text-end">
+                                        <button class="btn btn-sm btn-outline-secondary edit-modal-btn" data-subject="English" data-roll="{{ r.roll_number }}" data-name="{{ r.name }}" data-count="{{ r.attendance_count }}">
+                                            <i class="fa-solid fa-pen-to-square me-1"></i>Edit
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            {% else %}
+                                <tr><td colspan="5" class="text-center py-4 text-muted">No records found.</td></tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- 5. Audit Logs Pane -->
+            <div class="tab-pane fade" id="logs-pane" role="tabpanel">
+                <div class="table-responsive">
+                    <table class="table table-custom table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>ID</th>
+                                <th>Subject</th>
+                                <th>Roll Number</th>
+                                <th>Student Name</th>
+                                <th>Timestamp</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% if logs %}
+                                {% for l in logs %}
+                                <tr>
+                                    <td>#{{ l.id }}</td>
+                                    <td>
+                                        <span class="badge {% if l.subject == 'Hindi' %}bg-primary-subtle text-primary{% else %}bg-info-subtle text-info{% endif %}">
+                                            {{ l.subject }}
+                                        </span>
+                                    </td>
+                                    <td class="fw-bold">{{ l.roll_number }}</td>
+                                    <td>{{ l.name }}</td>
+                                    <td><small class="text-muted">{{ l.timestamp }}</small></td>
+                                </tr>
+                                {% endfor %}
+                            {% else %}
+                                <tr><td colspan="5" class="text-center py-4 text-muted">No audit logs recorded yet.</td></tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Teacher Correction Modal for Session Attendance -->
+<div class="modal fade" id="correctionModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fa-solid fa-user-pen me-2 text-primary"></i>Teacher Attendance Correction</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="corrSessionId">
+                <input type="hidden" id="corrRoll">
+                <p>Modify session attendance for: <strong id="corrStudentName" class="text-dark"></strong> (Roll: <span id="corrRollDisplay"></span>)</p>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Attendance Status</label>
+                    <select class="form-select" id="corrStatusSelect">
+                        <option value="PRESENT">PRESENT</option>
+                        <option value="CHECKED_OUT">CHECKED_OUT</option>
+                        <option value="ABSENT">ABSENT</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Reason for Manual Override</label>
+                    <input type="text" class="form-control" id="corrReasonInput" value="Instructor review & verification">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="saveCorrectionBtn">Save Override</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Legacy Edit Attendance Modal -->
+<div class="modal fade" id="editModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Legacy Attendance Correction</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="modalSubject">
+                <input type="hidden" id="modalRoll">
+                <p>Modifying attendance for: <strong id="modalStudentName"></strong> (Roll: <span id="modalRollDisplay"></span>) in <strong id="modalSubjectDisplay"></strong></p>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Attendance Hits Count</label>
+                    <input type="number" class="form-control" id="modalCountInput" min="0">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="saveModalBtn">Save Changes</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+function switchSession(sessId) {
+    if (!sessId) return;
+    window.location.href = `/records?session_id=${encodeURIComponent(sessId)}`;
+}
+
+// Table Filter
+function setupFilter(inputId, tableId) {
+    const input = document.getElementById(inputId);
+    const table = document.getElementById(tableId);
+    if (!input || !table) return;
+
+    input.addEventListener('keyup', () => {
+        const query = input.value.toLowerCase();
+        const rows = table.querySelectorAll('tbody tr');
+        rows.forEach(r => {
+            const text = r.innerText.toLowerCase();
+            r.style.display = text.includes(query) ? '' : 'none';
+        });
+    });
+}
+setupFilter('searchRoster', 'rosterTable');
+setupFilter('searchEvents', 'eventsTable');
+setupFilter('searchHindi', 'hindiTable');
+setupFilter('searchEnglish', 'englishTable');
+
+// Teacher Correction Modal
+const correctionModalEl = document.getElementById('correctionModal');
+const correctionModal = new bootstrap.Modal(correctionModalEl);
+const corrSessionId = document.getElementById('corrSessionId');
+const corrRoll = document.getElementById('corrRoll');
+const corrStudentName = document.getElementById('corrStudentName');
+const corrRollDisplay = document.getElementById('corrRollDisplay');
+const corrStatusSelect = document.getElementById('corrStatusSelect');
+const saveCorrectionBtn = document.getElementById('saveCorrectionBtn');
+
+document.querySelectorAll('.correction-modal-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        corrSessionId.value = btn.dataset.session;
+        corrRoll.value = btn.dataset.roll;
+        corrStudentName.innerText = btn.dataset.name;
+        corrRollDisplay.innerText = btn.dataset.roll;
+        corrStatusSelect.value = btn.dataset.status;
+        correctionModal.show();
+    });
+});
+
+saveCorrectionBtn.addEventListener('click', async () => {
+    const sessId = corrSessionId.value;
+    const roll = corrRoll.value;
+    const status = corrStatusSelect.value;
+    const reason = document.getElementById('corrReasonInput').value;
+
+    try {
+        const resp = await fetch('/api/attendance/correct', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                session_id: sessId,
+                roll_number: roll,
+                status: status,
+                reason: reason
+            })
+        });
+        const data = await resp.json();
+        if (data.success) {
+            showToast(data.message, 'success');
+            correctionModal.hide();
+            setTimeout(() => window.location.reload(), 600);
+        } else {
+            showToast(data.message, 'danger');
+        }
+    } catch (e) {
+        showToast('Correction error: ' + e.message, 'danger');
+    }
+});
+
+// Legacy Modal Handling
+const editModalEl = document.getElementById('editModal');
+const editModal = new bootstrap.Modal(editModalEl);
+const modalSubject = document.getElementById('modalSubject');
+const modalRoll = document.getElementById('modalRoll');
+const modalStudentName = document.getElementById('modalStudentName');
+const modalRollDisplay = document.getElementById('modalRollDisplay');
+const modalSubjectDisplay = document.getElementById('modalSubjectDisplay');
+const modalCountInput = document.getElementById('modalCountInput');
+const saveModalBtn = document.getElementById('saveModalBtn');
+
+document.querySelectorAll('.edit-modal-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        modalSubject.value = btn.dataset.subject;
+        modalRoll.value = btn.dataset.roll;
+        modalStudentName.innerText = btn.dataset.name;
+        modalRollDisplay.innerText = btn.dataset.roll;
+        modalSubjectDisplay.innerText = btn.dataset.subject;
+        modalCountInput.value = btn.dataset.count;
+        editModal.show();
+    });
+});
+
+saveModalBtn.addEventListener('click', async () => {
+    const subj = modalSubject.value;
+    const roll = modalRoll.value;
+    const count = parseInt(modalCountInput.value) || 0;
+
+    try {
+        const resp = await fetch('/api/attendance/manual', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                subject: subj,
+                roll_number: roll,
+                count: count
+            })
+        });
+        const data = await resp.json();
+        if (data.success) {
+            showToast(data.message, 'success');
+            const targetBadge = document.getElementById(`val-${subj.toLowerCase()}-${roll}`);
+            if (targetBadge) {
+                targetBadge.innerText = count;
+                targetBadge.className = `badge ${count > 0 ? 'bg-success' : 'bg-secondary'} fs-6`;
+            }
+            editModal.hide();
+        } else {
+            showToast(data.message, 'danger');
+        }
+    } catch (e) {
+        showToast('Update error: ' + e.message, 'danger');
+    }
+});
+</script>
+{% endblock %}

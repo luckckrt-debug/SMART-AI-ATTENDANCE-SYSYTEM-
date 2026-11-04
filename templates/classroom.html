@@ -1,0 +1,746 @@
+{% extends "base.html" %}
+
+{% block title %}Live Classroom Attendance & Session Analytics{% endblock %}
+{% block page_title %}<i class="fa-solid fa-chalkboard-user text-cyan me-2"></i>Live Classroom Session & Camera Scanner{% endblock %}
+
+{% block content %}
+<!-- Top Active Session Banner -->
+<div class="session-banner d-flex flex-wrap justify-content-between align-items-center gap-3">
+    <div>
+        <div class="d-flex align-items-center gap-2 mb-1">
+            <span class="badge bg-danger pulse-dot me-1"></span>
+            <span class="fw-bold text-white fs-5">{{ session.subject }}</span>
+            <span class="session-badge">{{ session.section }}</span>
+            <span class="badge bg-dark border border-secondary text-secondary">{{ session.session_id }}</span>
+        </div>
+        <div class="small text-secondary d-flex flex-wrap gap-3">
+            <span><i class="fa-solid fa-building-columns text-cyan me-1"></i>{{ session.department }}</span>
+            <span><i class="fa-solid fa-calendar me-1"></i>{{ session.academic_year }} &bull; {{ session.class_name }}</span>
+            <span><i class="fa-solid fa-user-tie text-cyan me-1"></i>Faculty: <strong>{{ session.faculty_name }}</strong></span>
+            <span><i class="fa-regular fa-clock me-1"></i>Started: {{ session.session_start_time }}</span>
+        </div>
+    </div>
+
+    <div class="d-flex gap-2 align-items-center">
+        <!-- New / Switch Session Modal Trigger -->
+        <button type="button" class="btn btn-outline-cyan btn-sm" data-bs-toggle="modal" data-bs-target="#newSessionModal">
+            <i class="fa-solid fa-arrow-right-arrow-left me-1"></i>Switch / New Session
+        </button>
+        <button type="button" class="btn btn-outline-danger btn-sm" id="endSessionBtn">
+            <i class="fa-solid fa-stop me-1"></i>End Session
+        </button>
+    </div>
+</div>
+
+<!-- Classroom Stats Row -->
+<div class="row g-3 mb-4">
+    <div class="col-sm-6 col-xl-2">
+        <div class="stat-card">
+            <div class="stat-icon cyan"><i class="fa-solid fa-users"></i></div>
+            <div>
+                <div class="stat-val" id="statTotal">{{ roster|length }}</div>
+                <div class="stat-label">Enrolled Roster</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-sm-6 col-xl-2">
+        <div class="stat-card">
+            <div class="stat-icon success"><i class="fa-solid fa-user-check"></i></div>
+            <div>
+                <div class="stat-val text-success" id="statPresent">
+                    {{ roster|selectattr('is_present')|list|length }}
+                </div>
+                <div class="stat-label">Verified Present</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-sm-6 col-xl-2">
+        <div class="stat-card">
+            <div class="stat-icon danger"><i class="fa-solid fa-user-xmark"></i></div>
+            <div>
+                <div class="stat-val text-danger" id="statAbsent">
+                    {{ roster|rejectattr('is_present')|list|length }}
+                </div>
+                <div class="stat-label">Absent Students</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-sm-6 col-xl-2">
+        <div class="stat-card">
+            <div class="stat-icon warning"><i class="fa-solid fa-door-open"></i></div>
+            <div>
+                <div class="stat-val text-warning" id="statExited">
+                    {{ roster|selectattr('status', 'equalto', 'CHECKED_OUT')|list|length }}
+                </div>
+                <div class="stat-label">Checked Out</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-sm-6 col-xl-4">
+        <div class="stat-card justify-content-between">
+            <div class="d-flex align-items-center gap-3">
+                <div class="stat-icon cyan"><i class="fa-solid fa-video"></i></div>
+                <div>
+                    <div class="stat-val" style="font-size: 1.15rem;" id="camStatusVal">
+                        <span class="text-success"><i class="fa-solid fa-circle me-1" style="font-size: 0.7rem;"></i>Camera Ready</span>
+                    </div>
+                    <div class="stat-label" id="camMetricsText">FPS: 0 | Latency: 0ms | Faces: 0</div>
+                </div>
+            </div>
+            <a href="{{ url_for('export_session_csv_route', session_id=session.session_id) }}" class="btn btn-cyan btn-sm">
+                <i class="fa-solid fa-file-csv me-1"></i>Export CSV
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Main Classroom Grid -->
+<div class="row g-4 mb-4">
+    <!-- Camera Viewport Column -->
+    <div class="col-lg-7">
+        <div class="card-custom h-100">
+            <div class="card-header">
+                <span><i class="fa-solid fa-camera-viewfinder text-cyan me-2"></i>Classroom Camera Multi-Person Detection</span>
+                <span class="badge bg-dark border border-secondary text-secondary">
+                    Threshold: {{ (config.confidence_threshold * 100)|int }}% &bull; Sustained: {{ config.frames_for_attendance }}f
+                </span>
+            </div>
+            <div class="card-body">
+                <!-- Video Viewport with Native Rendering (Zero Green Screen!) -->
+                <div class="camera-wrapper position-relative rounded overflow-hidden shadow-sm mb-3" id="cameraWrapper" style="background: #020612; border: 1px solid rgba(100, 255, 218, 0.2);">
+                    <!-- Top Status Bar -->
+                    <div class="camera-top-bar d-flex flex-wrap justify-content-between align-items-center px-3 py-2 text-white small" style="background: rgba(10, 25, 47, 0.95); border-bottom: 1px solid rgba(100, 255, 218, 0.2); z-index: 5; gap: 8px;">
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="badge bg-secondary" id="camStatusBadge">
+                                <i class="fa-solid fa-circle me-1" style="font-size: 0.6rem;"></i><span id="camStatusText">OFFLINE</span>
+                            </span>
+                            <span class="text-light small text-truncate" style="max-width: 180px;" id="camDeviceNameDisplay">No Camera Active</span>
+                        </div>
+                        <!-- Real-time Multi-Person Scope Counters -->
+                        <div class="d-flex align-items-center gap-2 font-monospace" style="font-size: 0.78rem;">
+                            <span class="badge bg-dark border border-secondary text-light px-2 py-1" title="Eligible Students in Session">Eligible: <strong id="hudEligibleCount" class="text-white">0</strong></span>
+                            <span class="badge bg-success-subtle text-success border border-success px-2 py-1" title="Present & Verified">Present: <strong id="hudPresentCount">0</strong></span>
+                            <span class="badge bg-primary-subtle text-primary border border-primary px-2 py-1" title="Faculty Detected (Excluded from Attendance)">Faculty: <strong id="hudFacultyCount">0</strong></span>
+                            <span class="badge bg-warning-subtle text-warning border border-warning px-2 py-1" title="Students from other classes">Outside: <strong id="hudOutsideCount">0</strong></span>
+                            <span class="badge bg-danger-subtle text-danger border border-danger px-2 py-1" title="Unknown / Unregistered faces">Unknown: <strong id="hudUnknownCount">0</strong></span>
+                        </div>
+                        <div class="d-flex align-items-center gap-3 font-monospace">
+                            <span class="text-cyan"><i class="fa-solid fa-users-viewfinder me-1"></i>FACES: <strong class="text-white" id="hudFaceCount">0</strong></span>
+                            <span class="text-secondary">|</span>
+                            <span class="text-cyan"><i class="fa-regular fa-clock me-1"></i><span id="hudClock" class="text-white">--:--:--</span></span>
+                        </div>
+                    </div>
+
+                    <!-- Viewport Content Area -->
+                    <div class="position-relative d-flex align-items-center justify-content-center" id="viewportContainer" style="min-height: 400px; max-height: 520px; background: #000;">
+                        <!-- Offline / Standby Placeholder Screen -->
+                        <div id="camOfflinePlaceholder" class="text-center p-5" style="z-index: 2;">
+                            <div class="mb-3 text-secondary">
+                                <i class="fa-solid fa-video-slash display-4" style="color: #64748b;"></i>
+                            </div>
+                            <h5 class="text-white mb-2" id="placeholderTitle">Classroom Camera Idle</h5>
+                            <p class="small text-secondary mb-3" style="max-width: 380px;" id="placeholderDesc">Initiate multi-person facial detection and continuous session tracking.</p>
+                            <div id="camErrorAlert" class="alert alert-danger py-2 px-3 small d-none" style="max-width: 440px;" role="alert"></div>
+                            <button type="button" class="btn btn-cyan px-4 py-2" id="startCamBtn">
+                                <i class="fa-solid fa-play me-2"></i>Start Classroom Scanner
+                            </button>
+                        </div>
+
+                        <!-- Actual Native Live Video (Clean 60fps, No Green Screen!) -->
+                        <video id="classroomVideo" autoplay playsinline muted style="width: 100%; height: 100%; object-fit: contain; display: none; transform: scaleX(-1);"></video>
+
+                        <!-- Transparent HUD Overlay Canvas for Bounding Boxes, IDs, and Labels -->
+                        <canvas id="classroomOverlayCanvas" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: contain; pointer-events: none; z-index: 4; display: none;"></canvas>
+
+                        <!-- Offscreen Capture Canvas -->
+                        <canvas id="classroomCaptureCanvas" style="display: none;"></canvas>
+                    </div>
+
+                    <!-- Bottom Performance Bar -->
+                    <div class="camera-bottom-bar d-flex flex-wrap justify-content-between align-items-center px-3 py-2 text-white font-monospace small" style="background: rgba(10, 25, 47, 0.95); border-top: 1px solid rgba(100, 255, 218, 0.2); font-size: 0.78rem; z-index: 5;">
+                        <div class="d-flex align-items-center gap-3">
+                            <span><span class="text-cyan">FPS:</span> <strong id="hudFpsVal" class="text-white">0</strong></span>
+                            <span class="text-secondary">&bull;</span>
+                            <span><span class="text-cyan">Faces:</span> <strong id="hudFacesVal" class="text-white">0</strong></span>
+                            <span class="text-secondary">&bull;</span>
+                            <span><span class="text-cyan">Latency:</span> <strong id="hudLatencyVal" class="text-white">0ms</strong></span>
+                        </div>
+                        <div>
+                            <span class="text-cyan">Resolution:</span> <span id="hudResolutionVal" class="text-white">-</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Camera Action Controls -->
+                <div class="d-flex flex-wrap gap-2 justify-content-between align-items-center p-2 rounded bg-dark bg-opacity-50 border border-secondary border-opacity-25 mb-3">
+                    <div class="d-flex flex-wrap gap-2 align-items-center">
+                        <button type="button" class="btn btn-outline-warning btn-sm" id="pauseCamBtn" disabled>
+                            <i class="fa-solid fa-pause me-1"></i>Pause
+                        </button>
+                        <button type="button" class="btn btn-outline-success btn-sm" id="resumeCamBtn" style="display: none;">
+                            <i class="fa-solid fa-play me-1"></i>Resume
+                        </button>
+                        <button type="button" class="btn btn-outline-danger btn-sm" id="stopCamBtn" disabled>
+                            <i class="fa-solid fa-stop me-1"></i>Stop Camera
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary btn-sm" id="refreshRosterBtn">
+                            <i class="fa-solid fa-arrows-rotate me-1"></i>Refresh Roster
+                        </button>
+                    </div>
+
+                    <div class="d-flex align-items-center gap-2">
+                        <select class="form-select form-select-sm" id="classroomDeviceSelect" style="max-width: 200px; background: #071224; color: #fff; border-color: rgba(100, 255, 218, 0.3);">
+                            <option value="">Default Camera</option>
+                        </select>
+                        <button type="button" class="btn btn-sm btn-outline-cyan" id="classroomFullscreenBtn" title="Toggle Fullscreen">
+                            <i class="fa-solid fa-expand"></i>
+                        </button>
+                    </div>
+                </div>
+                <!-- Developer Diagnostics & Telemetry Panel (Collapsible) -->
+                <div class="mt-3">
+                    <button class="btn btn-sm btn-outline-secondary d-flex align-items-center gap-2 w-100 justify-content-between" type="button" data-bs-toggle="collapse" data-bs-target="#cameraDiagnosticsCollapse" aria-expanded="false" id="toggleDiagnosticsBtn">
+                        <span class="d-flex align-items-center gap-2">
+                            <i class="fa-solid fa-screwdriver-wrench text-cyan"></i>
+                            <span class="fw-semibold text-white">Real-Time Camera Diagnostics & Pipeline Telemetry</span>
+                        </span>
+                        <i class="fa-solid fa-chevron-down text-secondary"></i>
+                    </button>
+                    <div class="collapse mt-2" id="cameraDiagnosticsCollapse">
+                        <div class="card card-body p-3 font-monospace small" style="background: #061122; border: 1px solid rgba(100, 255, 218, 0.2); color: #e6f1ff;">
+                            <!-- Diagnostics Warning Banner -->
+                            <div id="diagFrozenWarning" class="alert alert-warning py-2 px-3 small d-none mb-3" role="alert">
+                                <i class="fa-solid fa-triangle-exclamation me-2"></i>
+                                <strong>Diagnostic Warning:</strong> Camera is connected but video frames are not updating or receiving data from the sensor.
+                            </div>
+
+                            <div class="row g-2">
+                                <div class="col-sm-6 col-md-3">
+                                    <span class="text-secondary">MediaStream:</span>
+                                    <strong id="diagStreamAvailable" class="text-white ms-1">NO</strong>
+                                </div>
+                                <div class="col-sm-6 col-md-3">
+                                    <span class="text-secondary">Track State:</span>
+                                    <strong id="diagTrackState" class="text-white ms-1">NONE</strong>
+                                </div>
+                                <div class="col-sm-6 col-md-3">
+                                    <span class="text-secondary">Track Enabled:</span>
+                                    <strong id="diagTrackEnabled" class="text-white ms-1">NO</strong>
+                                </div>
+                                <div class="col-sm-6 col-md-3">
+                                    <span class="text-secondary">Device ID:</span>
+                                    <span id="diagDeviceId" class="text-white ms-1 text-truncate d-inline-block" style="max-width: 140px;">-</span>
+                                </div>
+                                <div class="col-sm-6 col-md-3">
+                                    <span class="text-secondary">Video readyState:</span>
+                                    <strong id="diagReadyState" class="text-white ms-1">0 (HAVE_NOTHING)</strong>
+                                </div>
+                                <div class="col-sm-6 col-md-3">
+                                    <span class="text-secondary">Video Dims:</span>
+                                    <strong id="diagVideoDims" class="text-white ms-1">0 × 0</strong>
+                                </div>
+                                <div class="col-sm-6 col-md-3">
+                                    <span class="text-secondary">Canvas Dims:</span>
+                                    <strong id="diagCanvasDims" class="text-white ms-1">0 × 0</strong>
+                                </div>
+                                <div class="col-sm-6 col-md-3">
+                                    <span class="text-secondary">Playback:</span>
+                                    <strong id="diagPlaybackStatus" class="text-white ms-1">IDLE</strong>
+                                </div>
+                                <div class="col-sm-6 col-md-3">
+                                    <span class="text-secondary">Last Frame:</span>
+                                    <strong id="diagLastFrameReceived" class="text-white ms-1">-</strong>
+                                </div>
+                                <div class="col-sm-6 col-md-3">
+                                    <span class="text-secondary">Face Detector:</span>
+                                    <strong id="diagDetectorStatus" class="text-success ms-1">AI READY (Haar + Dlib)</strong>
+                                </div>
+                                <div class="col-sm-6 col-md-3">
+                                    <span class="text-secondary">Recognition Model:</span>
+                                    <strong id="diagModelStatus" class="text-success ms-1">AI READY (FaceNet)</strong>
+                                </div>
+                                <div class="col-sm-6 col-md-3">
+                                    <span class="text-secondary">Status:</span>
+                                    <strong id="diagCameraStatusVal" class="text-cyan ms-1">IDLE</strong>
+                                </div>
+                                <div class="col-12 mt-2 pt-2 border-top border-secondary border-opacity-25">
+                                    <span class="text-secondary">Last Error:</span>
+                                    <span id="diagLastError" class="text-success ms-1">None</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Live Event Notifications & Alert Stream -->
+    <div class="col-lg-5">
+        <div class="card-custom h-100">
+            <div class="card-header">
+                <span><i class="fa-solid fa-bell text-warning me-2"></i>Exit Event Alerts & Neutral Notifications</span>
+                <span class="badge bg-warning text-dark" id="notifCountBadge">{{ notifications|length }}</span>
+            </div>
+            <div class="card-body p-0">
+                <!-- Neutral Notifications List -->
+                <div id="notificationsContainer" class="p-3 border-bottom" style="max-height: 220px; overflow-y: auto;">
+                    {% if notifications %}
+                        {% for n in notifications %}
+                        <div class="alert alert-warning py-2 px-3 small mb-2 d-flex justify-content-between align-items-center">
+                            <div>
+                                <div class="fw-bold"><i class="fa-solid fa-triangle-exclamation me-1"></i>{{ n.title }}</div>
+                                <div>{{ n.message }}</div>
+                                <small class="text-muted">{{ n.timestamp }}</small>
+                            </div>
+                            <button class="btn btn-sm btn-outline-dark dismiss-notif-btn" data-id="{{ n.notification_id }}">Dismiss</button>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="text-center py-3 text-secondary small" id="noNotifsText">
+                            <i class="fa-regular fa-bell-slash me-1"></i>No repeated exit notices recorded for this session.
+                        </div>
+                    {% endif %}
+                </div>
+
+                <!-- Recent Entry / Exit Events Feed -->
+                <div class="p-3">
+                    <h6 class="text-uppercase small text-secondary fw-bold mb-2">Live Activity Stream</h6>
+                    <div id="eventsFeed" style="max-height: 240px; overflow-y: auto;">
+                        {% if events %}
+                            {% for ev in events %}
+                            <div class="d-flex align-items-center justify-content-between py-2 border-bottom border-secondary border-opacity-10 small">
+                                <div>
+                                    <span class="badge {% if ev.event_type == 'CHECK_IN' %}bg-success{% elif ev.event_type == 'RETURN' %}bg-info{% else %}bg-warning text-dark{% endif %} me-2">
+                                        {{ ev.event_type }}
+                                    </span>
+                                    <strong>{{ ev.name }}</strong> (Roll: {{ ev.roll_number }})
+                                </div>
+                                <span class="text-secondary font-monospace" style="font-size: 0.78rem;">{{ ev.timestamp.split(' ')[1] }}</span>
+                            </div>
+                            {% endfor %}
+                        {% else %}
+                            <div class="text-center py-3 text-secondary small">No check-in or exit events logged yet.</div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Student Notification Cards Reel -->
+<div class="card-custom mb-4">
+    <div class="card-header">
+        <span><i class="fa-solid fa-id-card-clip text-cyan me-2"></i>Student Notification Cards (Present in Current Session)</span>
+        <span class="badge bg-cyan text-dark font-monospace" id="presentCountBadge">{{ roster|selectattr('is_present')|list|length }} Active</span>
+    </div>
+    <div class="card-body">
+        <div class="row g-3" id="studentCardsContainer">
+            {% for s in roster %}
+                {% if s.is_present %}
+                <div class="col-md-6 col-xl-3" id="card-{{ s.roll_number }}">
+                    <div class="student-card">
+                        {% if s.profile_photo %}
+                        <img src="{{ s.profile_photo }}" class="student-avatar" alt="{{ s.name }}" onerror="this.src='/static/img/avatar.png'">
+                        {% else %}
+                        <div class="student-avatar placeholder"><i class="fa-solid fa-user"></i></div>
+                        {% endif %}
+                        <div class="flex-grow-1 min-w-0">
+                            <div class="fw-bold text-white text-truncate">{{ s.name }}</div>
+                            <div class="small text-cyan font-monospace">Roll: {{ s.roll_number }}</div>
+                            <div class="small text-secondary">{{ s.section }} &bull; {{ s.duration_formatted }}</div>
+                            <div class="d-flex gap-1 mt-1">
+                                <span class="badge {% if s.status == 'PRESENT' %}bg-success{% else %}bg-warning text-dark{% endif %} p-1" style="font-size: 0.68rem;">
+                                    {{ s.status }}
+                                </span>
+                                {% if s.exit_count > 0 %}
+                                <span class="badge bg-secondary p-1" style="font-size: 0.68rem;" title="Exit count">
+                                    {{ s.exit_count }} exits
+                                </span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="dropdown">
+                            <button class="btn btn-sm btn-outline-secondary py-1 px-2" data-bs-toggle="dropdown">
+                                <i class="fa-solid fa-ellipsis-vertical"></i>
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-dark dropdown-menu-end small">
+                                <li>
+                                    <button class="dropdown-item quick-exit-btn" data-roll="{{ s.roll_number }}" data-name="{{ s.name }}">
+                                        <i class="fa-solid fa-door-open text-warning me-2"></i>Log Temporary Exit
+                                    </button>
+                                </li>
+                                <li>
+                                    <button class="dropdown-item quick-return-btn" data-roll="{{ s.roll_number }}" data-name="{{ s.name }}">
+                                        <i class="fa-solid fa-person-walking-arrow-right text-success me-2"></i>Log Return
+                                    </button>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<!-- Full Session Attendance Roster Table -->
+<div class="card-custom">
+    <div class="card-header flex-wrap gap-2">
+        <span><i class="fa-solid fa-table-list text-cyan me-2"></i>Classroom Attendance & Duration Roster</span>
+        <div class="d-flex gap-2">
+            <input type="text" class="form-control form-control-sm" id="rosterSearch" placeholder="Filter by roll or student name..." style="max-width: 250px;">
+            <select class="form-select form-select-sm" id="statusFilter" style="max-width: 150px;">
+                <option value="ALL">All Statuses</option>
+                <option value="PRESENT">Present Only</option>
+                <option value="ABSENT">Absent Only</option>
+                <option value="CHECKED_OUT">Checked Out</option>
+            </select>
+        </div>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-custom table-hover align-middle mb-0" id="rosterTable">
+                <thead>
+                    <tr>
+                        <th>Photo</th>
+                        <th>Roll Number</th>
+                        <th>Student Name</th>
+                        <th>Department & Section</th>
+                        <th>Status</th>
+                        <th>First Check-In</th>
+                        <th>Verified Duration</th>
+                        <th>Exits</th>
+                        <th class="text-end">Teacher Override</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for s in roster %}
+                    <tr class="roster-row" data-status="{{ s.status }}" id="row-{{ s.roll_number }}">
+                        <td>
+                            <img src="{{ s.profile_photo or '/static/img/avatar.png' }}" class="rounded" style="width: 36px; height: 36px; object-fit: cover;" onerror="this.src='/static/img/avatar.png'">
+                        </td>
+                        <td class="fw-bold font-monospace">{{ s.roll_number }}</td>
+                        <td class="fw-semibold">{{ s.name }}</td>
+                        <td><small class="text-secondary">{{ s.department }} &bull; {{ s.section }}</small></td>
+                        <td>
+                            <span class="badge {% if s.status == 'PRESENT' %}bg-success{% elif s.status == 'CHECKED_OUT' %}bg-warning text-dark{% else %}bg-danger{% endif %}" id="badge-{{ s.roll_number }}">
+                                {{ s.status }}
+                            </span>
+                        </td>
+                        <td><small class="text-secondary" id="firstin-{{ s.roll_number }}">{{ s.first_check_in or '—' }}</small></td>
+                        <td><span class="font-monospace text-cyan" id="dur-{{ s.roll_number }}">{{ s.duration_formatted }}</span></td>
+                        <td><span class="badge bg-secondary" id="exits-{{ s.roll_number }}">{{ s.exit_count }}</span></td>
+                        <td class="text-end">
+                            <div class="btn-group btn-group-sm">
+                                <button class="btn btn-outline-success teacher-status-btn" data-roll="{{ s.roll_number }}" data-status="PRESENT" title="Mark Present">
+                                    <i class="fa-solid fa-check"></i>
+                                </button>
+                                <button class="btn btn-outline-warning teacher-status-btn" data-roll="{{ s.roll_number }}" data-status="CHECKED_OUT" title="Check Out">
+                                    <i class="fa-solid fa-door-open"></i>
+                                </button>
+                                <button class="btn btn-outline-danger teacher-status-btn" data-roll="{{ s.roll_number }}" data-status="ABSENT" title="Mark Absent">
+                                    <i class="fa-solid fa-xmark"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Create / Switch Classroom Session -->
+<div class="modal fade" id="newSessionModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fa-solid fa-layer-group text-cyan me-2"></i>Configure Classroom Session</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="createSessionForm">
+                <div class="modal-body">
+                    <p class="small text-secondary">
+                        Changing class, section, or subject initiates a new unique Session ID. Attendance records are guaranteed unique per student per session.
+                    </p>
+                    <div class="mb-3">
+                        <label class="form-label">Academic Year</label>
+                        <input type="text" class="form-control" name="academic_year" value="2026-2027" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Department</label>
+                        <select class="form-select" name="department">
+                            <option value="Computer Science & Engineering" selected>Computer Science & Engineering</option>
+                            <option value="Information Technology">Information Technology</option>
+                            <option value="Electronics & Communication">Electronics & Communication</option>
+                            <option value="Electrical Engineering">Electrical Engineering</option>
+                        </select>
+                    </div>
+                    <div class="row g-2 mb-3">
+                        <div class="col-6">
+                            <label class="form-label">Class</label>
+                            <input type="text" class="form-control" name="class_name" value="B.Tech Year 3" required>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label">Section</label>
+                            <select class="form-select" name="section">
+                                <option value="Section A" selected>Section A</option>
+                                <option value="Section B">Section B</option>
+                                <option value="Section C">Section C</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Subject</label>
+                        <input type="text" class="form-control" name="subject" value="Machine Learning & AI" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Faculty Name</label>
+                        <input type="text" class="form-control" name="faculty_name" value="Prof. Sharma" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-cyan">Start New Session</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+const activeSessionId = "{{ active_session.session_id if active_session else (session_id or '') }}";
+let camStream = null;
+let camLoopInterval = null;
+let isCamActive = false;
+
+const classroomVideo = document.getElementById('classroomVideo');
+const classroomCanvas = document.getElementById('classroomCanvas');
+const classroomStream = document.getElementById('classroomStream');
+const standbyScreen = document.getElementById('standbyScreen');
+const camOverlay = document.getElementById('camOverlay');
+const startCamBtn = document.getElementById('startCamBtn');
+const stopCamBtn = document.getElementById('stopCamBtn');
+const camMetricsText = document.getElementById('camMetricsText');
+const camStatusVal = document.getElementById('camStatusVal');
+
+// Initialize Classroom Camera Scanner Engine
+let fullpageScanner = null;
+document.addEventListener('DOMContentLoaded', () => {
+    if (typeof ClassroomCameraScanner === 'function') {
+        fullpageScanner = new ClassroomCameraScanner({
+            sessionId: activeSessionId,
+            processingIntervalMs: 250,
+            idealWidth: 1280,
+            idealHeight: 720
+        });
+
+        fullpageScanner.initUI({
+            video: document.getElementById('classroomVideo'),
+            overlayCanvas: document.getElementById('classroomOverlayCanvas'),
+            captureCanvas: document.getElementById('classroomCaptureCanvas'),
+            placeholder: document.getElementById('camOfflinePlaceholder'),
+            errorAlert: document.getElementById('camErrorAlert'),
+            placeholderTitle: document.getElementById('placeholderTitle'),
+            placeholderDesc: document.getElementById('placeholderDesc'),
+            statusBadge: document.getElementById('camStatusBadge'),
+            statusText: document.getElementById('camStatusText'),
+            deviceSelect: document.getElementById('classroomDeviceSelect'),
+            deviceNameDisplay: document.getElementById('camDeviceNameDisplay'),
+            hudFaceCount: document.getElementById('hudFaceCount'),
+            hudClock: document.getElementById('hudClock'),
+            hudFpsVal: document.getElementById('hudFpsVal'),
+            hudFacesVal: document.getElementById('hudFacesVal'),
+            hudLatencyVal: document.getElementById('hudLatencyVal'),
+            hudResolutionVal: document.getElementById('hudResolutionVal'),
+            startBtn: document.getElementById('startCamBtn'),
+            pauseBtn: document.getElementById('pauseCamBtn'),
+            resumeBtn: document.getElementById('resumeCamBtn'),
+            stopBtn: document.getElementById('stopCamBtn'),
+            fullscreenBtn: document.getElementById('classroomFullscreenBtn'),
+            cameraWrapper: document.getElementById('cameraWrapper'),
+            cardsContainer: document.getElementById('studentCardsContainer')
+        });
+    }
+});
+
+// Update UI elements dynamically on check-in
+function markStudentPresentInUI(det) {
+    const badge = document.getElementById(`badge-${det.roll}`);
+    if (badge) {
+        badge.className = 'badge bg-success';
+        badge.innerText = 'PRESENT';
+    }
+    const card = document.getElementById(`card-${det.roll}`);
+    if (!card) {
+        // Add student card dynamically to the notification cards reel
+        const container = document.getElementById('studentCardsContainer');
+        const col = document.createElement('div');
+        col.className = 'col-md-6 col-xl-3';
+        col.id = `card-${det.roll}`;
+        col.innerHTML = `
+            <div class="student-card">
+                <img src="${det.profile_photo}" class="student-avatar" alt="${det.name}" onerror="this.src='/static/img/avatar.png'">
+                <div class="flex-grow-1 min-w-0">
+                    <div class="fw-bold text-white text-truncate">${det.name}</div>
+                    <div class="small text-cyan font-monospace">Roll: ${det.roll}</div>
+                    <div class="small text-secondary">${det.section} &bull; Just Now</div>
+                    <span class="badge bg-success p-1" style="font-size: 0.68rem;">PRESENT</span>
+                </div>
+            </div>
+        `;
+        container.prepend(col);
+    }
+}
+
+// Quick Exit Button handler
+document.querySelectorAll('.quick-exit-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+        const roll = btn.dataset.roll;
+        try {
+            const resp = await fetch('/api/attendance/exit', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ session_id: activeSessionId, roll_number: roll, reason: 'Temporary exit' })
+            });
+            const data = await resp.json();
+            if (data.success) {
+                showToast(data.message, 'warning');
+                setTimeout(() => window.location.reload(), 800);
+            }
+        } catch (e) {
+            showToast('Exit log failed: ' + e.message, 'danger');
+        }
+    });
+});
+
+// Quick Return Button handler
+document.querySelectorAll('.quick-return-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+        const roll = btn.dataset.roll;
+        try {
+            const resp = await fetch('/api/attendance/return', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ session_id: activeSessionId, roll_number: roll })
+            });
+            const data = await resp.json();
+            if (data.success) {
+                showToast(data.message, 'success');
+                setTimeout(() => window.location.reload(), 800);
+            }
+        } catch (e) {
+            showToast('Return log failed: ' + e.message, 'danger');
+        }
+    });
+});
+
+// Teacher Override buttons in Roster
+document.querySelectorAll('.teacher-status-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+        const roll = btn.dataset.roll;
+        const status = btn.dataset.status;
+        try {
+            const resp = await fetch('/api/attendance/correct', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ session_id: activeSessionId, roll_number: roll, status: status })
+            });
+            const data = await resp.json();
+            if (data.success) {
+                showToast(data.message, 'success');
+                const badge = document.getElementById(`badge-${roll}`);
+                if (badge) {
+                    badge.innerText = status;
+                    badge.className = `badge ${status === 'PRESENT' ? 'bg-success' : (status === 'CHECKED_OUT' ? 'bg-warning text-dark' : 'bg-danger')}`;
+                }
+            } else {
+                showToast(data.message, 'danger');
+            }
+        } catch (e) {
+            showToast('Correction error: ' + e.message, 'danger');
+        }
+    });
+});
+
+// Create New Session Form Submit
+document.getElementById('createSessionForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const formData = new FormData(e.target);
+    const payload = Object.fromEntries(formData.entries());
+
+    try {
+        const resp = await fetch('/api/sessions/create', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        const data = await resp.json();
+        if (data.success) {
+            showToast('New classroom session initialized: ' + data.session_id, 'success');
+            setTimeout(() => window.location.reload(), 1000);
+        } else {
+            showToast(data.message, 'danger');
+        }
+    } catch (err) {
+        showToast('Session creation error: ' + err.message, 'danger');
+    }
+});
+
+// End Session
+document.getElementById('endSessionBtn').addEventListener('click', async () => {
+    if (!confirm('Are you sure you want to conclude the active classroom session?')) return;
+    try {
+        const resp = await fetch('/api/sessions/end', { method: 'POST' });
+        const data = await resp.json();
+        if (data.success) {
+            showToast(data.message, 'info');
+            setTimeout(() => window.location.href = '/sessions', 800);
+        }
+    } catch (e) {
+        showToast('End session error: ' + e.message, 'danger');
+    }
+});
+
+// Dismiss notification
+document.querySelectorAll('.dismiss-notif-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+        const notifId = btn.dataset.id;
+        try {
+            await fetch(`/api/notifications/${notifId}/read`, { method: 'POST' });
+            btn.closest('.alert').remove();
+        } catch (e) {
+            console.error(e);
+        }
+    });
+});
+
+// Search & Filter in Table
+const rosterSearch = document.getElementById('rosterSearch');
+const statusFilter = document.getElementById('statusFilter');
+
+function filterRoster() {
+    const q = rosterSearch.value.toLowerCase();
+    const st = statusFilter.value;
+    document.querySelectorAll('.roster-row').forEach(row => {
+        const text = row.innerText.toLowerCase();
+        const rowStatus = row.dataset.status;
+        const matchesQ = text.includes(q);
+        const matchesSt = (st === 'ALL') || (rowStatus === st);
+        row.style.display = (matchesQ && matchesSt) ? '' : 'none';
+    });
+}
+rosterSearch.addEventListener('input', filterRoster);
+statusFilter.addEventListener('change', filterRoster);
+</script>
+{% endblock %}

@@ -1,0 +1,2907 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Panel - SmartClass AI{% endblock %}
+{% block page_title %}System Administration & Configuration Console{% endblock %}
+
+{% block content %}
+<style>
+.admin-sidebar-btn {
+    color: #94a3b8 !important;
+    font-weight: 400 !important;
+    font-size: 0.82rem !important;
+    border-radius: 6px;
+    padding: 7px 12px !important;
+    border: none;
+    background: transparent;
+    transition: all 0.15s ease-in-out;
+}
+.admin-sidebar-btn:hover {
+    color: #f1f5f9 !important;
+    background: rgba(255, 255, 255, 0.04);
+}
+.admin-sidebar-btn.active {
+    color: #64ffda !important;
+    background: rgba(100, 255, 218, 0.08) !important;
+    border-left: 3px solid #64ffda;
+    font-weight: 500 !important;
+}
+.admin-sidebar-btn i {
+    width: 18px;
+    text-align: center;
+    color: #64748b;
+}
+.admin-sidebar-btn.active i {
+    color: #64ffda;
+}
+</style>
+
+<div class="row g-4">
+    <!-- Admin Navigation Sidebar / Vertical Pills -->
+    <div class="col-lg-3 col-xl-2">
+        <div class="card-custom sticky-top" style="top: 85px;">
+            <div class="card-header py-2" style="background: var(--navy-dark); color: #fff;">
+                <div class="small fw-bold text-uppercase text-cyan"><i class="fa-solid fa-sliders me-1"></i> Admin Modules</div>
+            </div>
+            <div class="nav flex-column nav-pills p-2 gap-1" id="adminTabs" role="tablist">
+                <button class="nav-link text-start active py-2 admin-sidebar-btn" id="tab-overview" data-bs-toggle="pill" data-bs-target="#pane-overview" type="button" role="tab">
+                    <i class="fa-solid fa-chart-pie me-2"></i> 1. Overview
+                </button>
+                <button class="nav-link text-start py-2 admin-sidebar-btn" id="tab-students" data-bs-toggle="pill" data-bs-target="#pane-students" type="button" role="tab">
+                    <i class="fa-solid fa-users me-2"></i> 2. Student Management
+                </button>
+                <button class="nav-link text-start py-2 admin-sidebar-btn" id="tab-faculty" data-bs-toggle="pill" data-bs-target="#pane-faculty" type="button" role="tab">
+                    <i class="fa-solid fa-user-tie me-2"></i> 3. Faculty Management
+                </button>
+                <button class="nav-link text-start py-2 admin-sidebar-btn" id="tab-photos" data-bs-toggle="pill" data-bs-target="#pane-photos" type="button" role="tab">
+                    <i class="fa-solid fa-camera-retro me-2"></i> 4. Face Enrollment
+                </button>
+                <button class="nav-link text-start py-2 admin-sidebar-btn" id="tab-live" data-bs-toggle="pill" data-bs-target="#pane-live" type="button" role="tab">
+                    <i class="fa-solid fa-camera-viewfinder me-2"></i> 5. Live Attendance
+                </button>
+                <button class="nav-link text-start py-2 admin-sidebar-btn" id="tab-classes" data-bs-toggle="pill" data-bs-target="#pane-classes" type="button" role="tab">
+                    <i class="fa-solid fa-chalkboard me-2"></i> 6. Class Groups
+                </button>
+                <button class="nav-link text-start py-2 admin-sidebar-btn" id="tab-reports" data-bs-toggle="pill" data-bs-target="#pane-reports" type="button" role="tab">
+                    <i class="fa-solid fa-file-invoice me-2"></i> 7. Attendance Records
+                </button>
+                <button class="nav-link text-start py-2 admin-sidebar-btn" id="tab-recoglogs" data-bs-toggle="pill" data-bs-target="#pane-recoglogs" type="button" role="tab">
+                    <i class="fa-solid fa-shield-halved me-2"></i> 8. Recognition Logs
+                </button>
+                <button class="nav-link text-start py-2 admin-sidebar-btn" id="tab-aimodel" data-bs-toggle="pill" data-bs-target="#pane-aimodel" type="button" role="tab">
+                    <i class="fa-solid fa-brain me-2"></i> 9. AI Model Status
+                </button>
+                <button class="nav-link text-start py-2 admin-sidebar-btn" id="tab-training" data-bs-toggle="pill" data-bs-target="#pane-training" type="button" role="tab">
+                    <i class="fa-solid fa-layer-group me-2"></i> 10. Training & Dataset
+                </button>
+                <button class="nav-link text-start py-2 admin-sidebar-btn" id="tab-analytics" data-bs-toggle="pill" data-bs-target="#pane-analytics" type="button" role="tab">
+                    <i class="fa-solid fa-chart-line me-2"></i> 11. Reports & Analytics
+                </button>
+                <button class="nav-link text-start py-2 admin-sidebar-btn" id="tab-database" data-bs-toggle="pill" data-bs-target="#pane-database" type="button" role="tab">
+                    <i class="fa-solid fa-database me-2"></i> 12. Settings & DB
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Admin Content Workspace -->
+    <div class="col-lg-9 col-xl-10">
+        <div class="tab-content" id="adminTabContent">
+
+            <!-- ============================================================= -->
+            <!-- 1. OVERVIEW & ANALYTICS DASHBOARD                            -->
+            <!-- ============================================================= -->
+            <div class="tab-pane fade show active" id="pane-overview" role="tabpanel">
+                <div class="row g-3 mb-4">
+                    <div class="col-sm-6 col-xl-3">
+                        <div class="stat-card">
+                            <div class="stat-icon cyan"><i class="fa-solid fa-user-graduate"></i></div>
+                            <div>
+                                <div class="stat-val" id="statTotalStudents">{{ analytics.total_students if analytics else (students|length) }}</div>
+                                <div class="stat-label">Enrolled Students</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-sm-6 col-xl-3">
+                        <div class="stat-card">
+                            <div class="stat-icon purple"><i class="fa-solid fa-user-tie"></i></div>
+                            <div>
+                                <div class="stat-val" id="statTotalFaculty">{{ analytics.total_faculty if analytics else (faculty|length) }}</div>
+                                <div class="stat-label">Faculty (Excluded)</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-sm-6 col-xl-3">
+                        <div class="stat-card">
+                            <div class="stat-icon green"><i class="fa-solid fa-fingerprint"></i></div>
+                            <div>
+                                <div class="stat-val" id="statTotalEmbeddings">{{ analytics.total_embeddings if analytics else 0 }}</div>
+                                <div class="stat-label">Biometric Prototypes</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-sm-6 col-xl-3">
+                        <div class="stat-card">
+                            <div class="stat-icon orange"><i class="fa-solid fa-chalkboard-user"></i></div>
+                            <div>
+                                <div class="stat-val">{{ class_groups|length if class_groups else 0 }}</div>
+                                <div class="stat-label">Class Groups</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row g-4 mb-4">
+                    <div class="col-lg-8">
+                        <div class="card-custom h-100">
+                            <div class="card-header d-flex justify-content-between align-items-center">
+                                <span><i class="fa-solid fa-circle-check text-cyan me-2"></i>System Operational Integrity</span>
+                                <span class="badge bg-success-subtle text-success border border-success">
+                                    <i class="fa-solid fa-shield-check me-1"></i>Production Calibrated
+                                </span>
+                            </div>
+                            <div class="card-body">
+                                <div class="row g-3">
+                                    <div class="col-md-6">
+                                        <div class="p-3 rounded border bg-light">
+                                            <div class="small text-muted fw-bold mb-1">Face Recognition Architecture</div>
+                                            <div class="fw-semibold text-dark">FaceNet-128D Multi-Prototype Centroid</div>
+                                            <div class="small text-secondary mt-1">
+                                                Threshold High: <strong>0.72</strong> &bull; Review: <strong>0.58</strong> &bull; Margin: <strong>0.04</strong>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="p-3 rounded border bg-light">
+                                            <div class="small text-muted fw-bold mb-1">Faculty Exclusion Engine</div>
+                                            <div class="fw-semibold text-primary">Isolated Namespace Active</div>
+                                            <div class="small text-secondary mt-1">
+                                                Faculty faces marked with Pure Blue box and excluded from student attendance.
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="p-3 rounded border bg-light">
+                                            <div class="small text-muted fw-bold mb-1">Class-Wise Scope Enforcement</div>
+                                            <div class="fw-semibold text-success">Strict Candidate Filtering</div>
+                                            <div class="small text-secondary mt-1">
+                                                Students from outside class trigger warning: <em>"Not in this class"</em>.
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="p-3 rounded border bg-light">
+                                            <div class="small text-muted fw-bold mb-1">Database Sync State</div>
+                                            <div class="fw-semibold text-dark">{{ health.database if health else 'SQLite & MongoDB' }}</div>
+                                            <div class="small text-secondary mt-1">Full schema parity with instant face vector persistence.</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-lg-4">
+                        <div class="card-custom h-100">
+                            <div class="card-header">
+                                <span><i class="fa-solid fa-bolt text-warning me-2"></i>Quick Actions</span>
+                            </div>
+                            <div class="card-body d-flex flex-column gap-2">
+                                <a href="{{ url_for('classroom_page') }}" class="btn btn-cyan text-start py-2">
+                                    <i class="fa-solid fa-camera-viewfinder me-2"></i>Launch Classroom Camera Scanner
+                                </a>
+                                <button type="button" class="btn btn-primary text-start py-2" data-bs-toggle="modal" data-bs-target="#addStudentModal">
+                                    <i class="fa-solid fa-user-plus me-2"></i>Register New Student (Class Scoped)
+                                </button>
+                                <button type="button" class="btn btn-outline-primary text-start py-2" data-bs-toggle="modal" data-bs-target="#addFacultyModal">
+                                    <i class="fa-solid fa-user-tie me-2"></i>Enroll Faculty Member (Immunity)
+                                </button>
+                                <button type="button" class="btn btn-outline-secondary text-start py-2" onclick="document.getElementById('tab-classes').click()">
+                                    <i class="fa-solid fa-chalkboard me-2"></i>Inspect Class Groups Roster
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ============================================================= -->
+            <!-- 2. STUDENT MANAGEMENT                                         -->
+            <!-- ============================================================= -->
+            <div class="tab-pane fade" id="pane-students" role="tabpanel">
+                <div class="card-custom">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <div>
+                            <span><i class="fa-solid fa-users me-2 text-primary"></i>Student Profile Management</span>
+                            <span class="badge bg-light text-dark border ms-2" id="registeredStudentsBadge">{{ students|length }} Enrolled Students</span>
+                        </div>
+                        <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#addStudentModal">
+                            <i class="fa-solid fa-user-plus me-1"></i> Register Student
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-custom table-hover align-middle mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Photo</th>
+                                        <th>Roll / ID</th>
+                                        <th>Student Name</th>
+                                        <th>Degree & Stream</th>
+                                        <th>Academic Year & Session</th>
+                                        <th>Biometrics</th>
+                                        <th>Status</th>
+                                        <th class="text-end">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="studentsTableBody">
+                                    {% if students %}
+                                        {% for s in students %}
+                                        <tr id="row-student-{{ s.roll_number }}">
+                                            <td>
+                                                <img src="{{ s.profile_photo or '/static/profiles/' ~ s.roll_number ~ '.jpg' }}" class="rounded-circle border" width="34" height="34" style="object-fit: cover;" onerror="this.src='https://ui-avatars.com/api/?name={{ s.name | urlencode }}&background=0a192f&color=64ffda'">
+                                            </td>
+                                            <td class="fw-bold font-monospace">{{ s.roll_number }}</td>
+                                            <td class="fw-semibold text-dark">{{ s.name }}</td>
+                                            <td>
+                                                <span class="badge bg-light text-dark border">{{ s.degree or 'B.Tech' }}</span>
+                                                <small class="text-secondary d-block">{{ s.stream or s.department }}</small>
+                                            </td>
+                                            <td>
+                                                <span class="badge bg-secondary-subtle text-dark">{{ s.academic_year or '2nd Year' }}</span>
+                                                <small class="text-muted d-block">{{ s.academic_session or '2026-27' }}</small>
+                                            </td>
+                                            <td>
+                                                {% if s.face_enrollment_status == 'COMPLETED' or s.face_enrollment_status == 'ENROLLED' %}
+                                                <span class="badge bg-success-subtle text-success border border-success"><i class="fa-solid fa-check me-1"></i>FaceNet 128D</span>
+                                                {% elif s.face_enrollment_status == 'FAILED_QUALITY' %}
+                                                <span class="badge bg-warning-subtle text-warning border border-warning"><i class="fa-solid fa-triangle-exclamation me-1"></i>Quality Issue</span>
+                                                {% elif s.face_enrollment_status == 'MANUAL_REVIEW_REQUIRED' %}
+                                                <span class="badge bg-info-subtle text-info border border-info">Review Required</span>
+                                                {% else %}
+                                                <span class="badge bg-light text-muted border">Pending Upload</span>
+                                                {% endif %}
+                                            </td>
+                                            <td><span class="badge bg-success">{{ s.enrollment_status or 'Active' }}</span></td>
+                                            <td class="text-end">
+                                                <button class="btn btn-sm btn-outline-secondary manage-photos-btn" data-roll="{{ s.roll_number }}" data-name="{{ s.name }}" title="Manage Photos">
+                                                    <i class="fa-solid fa-camera"></i>
+                                                </button>
+                                                <button class="btn btn-sm btn-outline-danger delete-student-btn" data-roll="{{ s.roll_number }}" data-name="{{ s.name }}" title="Permanently Delete">
+                                                    <i class="fa-solid fa-trash-can"></i>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    {% else %}
+                                        <tr>
+                                            <td colspan="8" class="text-center text-muted py-4">No student profiles registered yet.</td>
+                                        </tr>
+                                    {% endif %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ============================================================= -->
+            <!-- 3. FACULTY MANAGEMENT & BIOMETRIC EXCLUSION                   -->
+            <!-- ============================================================= -->
+            <div class="tab-pane fade" id="pane-faculty" role="tabpanel">
+                <div class="card-custom">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <div>
+                            <span><i class="fa-solid fa-user-tie me-2 text-primary"></i>Faculty Biometric Management</span>
+                            <span class="badge bg-primary-subtle text-primary border border-primary ms-2">
+                                <i class="fa-solid fa-shield-halved me-1"></i>Automatic Attendance Exclusion Active
+                            </span>
+                        </div>
+                        <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#addFacultyModal">
+                            <i class="fa-solid fa-plus me-1"></i> Register Faculty
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <div class="alert alert-info py-2 px-3 small mb-3">
+                            <i class="fa-solid fa-circle-info me-2"></i>
+                            <strong>Faculty Biometric Immunity:</strong> Enrolled faculty are identified in classroom video with a <strong>Pure Blue bounding box</strong> and are permanently excluded from student attendance marking.
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table table-custom table-hover align-middle mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Photo</th>
+                                        <th>Faculty ID</th>
+                                        <th>Full Name</th>
+                                        <th>Department</th>
+                                        <th>Designation</th>
+                                        <th>Contact</th>
+                                        <th>Biometric Status</th>
+                                        <th class="text-end">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="facultyTableBody">
+                                    {% if faculty %}
+                                        {% for f in faculty %}
+                                        <tr id="row-faculty-{{ f.faculty_id }}">
+                                            <td>
+                                                <img src="/static/profiles/faculty_{{ f.faculty_id }}.jpg" class="rounded-circle border" width="34" height="34" style="object-fit: cover;" onerror="this.src='https://ui-avatars.com/api/?name={{ f.name | urlencode }}&background=1e3a8a&color=ffffff'">
+                                            </td>
+                                            <td class="fw-bold font-monospace">{{ f.faculty_id }}</td>
+                                            <td class="fw-semibold text-dark">{{ f.name }}</td>
+                                            <td><small class="text-muted">{{ f.department }}</small></td>
+                                            <td><span class="badge bg-light text-dark border">{{ f.designation or 'Faculty' }}</span></td>
+                                            <td><small class="text-secondary">{{ f.email }}<br>{{ f.phone }}</small></td>
+                                            <td>
+                                                <span class="badge bg-primary-subtle text-primary border border-primary">
+                                                    <i class="fa-solid fa-shield me-1"></i>Attendance Excluded
+                                                </span>
+                                            </td>
+                                            <td class="text-end">
+                                                <button class="btn btn-sm btn-outline-danger delete-faculty-btn" data-fid="{{ f.faculty_id }}" data-name="{{ f.name }}" title="Delete Faculty Member">
+                                                    <i class="fa-solid fa-trash"></i>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    {% else %}
+                                        <tr>
+                                            <td colspan="8" class="text-center text-muted py-4">No faculty members registered in exclusion namespace yet.</td>
+                                        </tr>
+                                    {% endif %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ============================================================= -->
+            <!-- 5. LIVE ATTENDANCE LAUNCHER                                   -->
+            <!-- ============================================================= -->
+            <div class="tab-pane fade" id="pane-live" role="tabpanel">
+                <div class="card-custom">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <span><i class="fa-solid fa-camera-viewfinder me-2 text-cyan"></i>Classroom Live Attendance Scanner</span>
+                        <a href="{{ url_for('classroom_page') }}" class="btn btn-cyan btn-sm">
+                            <i class="fa-solid fa-arrow-up-right-from-square me-1"></i>Open Full Classroom View
+                        </a>
+                    </div>
+                    <div class="card-body">
+                        <div class="p-4 text-center rounded border bg-light mb-3">
+                            <div class="mb-3 text-cyan display-4"><i class="fa-solid fa-video"></i></div>
+                            <h5>Live Multi-Person Classroom Camera Scanner</h5>
+                            <p class="text-secondary small mb-3">
+                                Features continuous multi-face association, instant biometric recognition, faculty exclusion (Pure Blue box), and outside-class person detection.
+                            </p>
+                            <a href="{{ url_for('classroom_page') }}" class="btn btn-primary px-4 py-2">
+                                <i class="fa-solid fa-play me-2"></i>Launch Classroom Camera
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ============================================================= -->
+            <!-- 8. RECOGNITION AUDIT LOGS                                      -->
+            <!-- ============================================================= -->
+            <div class="tab-pane fade" id="pane-recoglogs" role="tabpanel">
+                <div class="card-custom">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <span><i class="fa-solid fa-shield-halved me-2 text-cyan"></i>Real-Time Biometric Recognition Logs</span>
+                        <button class="btn btn-sm btn-outline-cyan" onclick="loadRecognitionLogs()">
+                            <i class="fa-solid fa-rotate me-1"></i>Refresh Logs
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-custom table-hover align-middle mb-0" style="font-size: 0.84rem;">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Timestamp</th>
+                                        <th>Session</th>
+                                        <th>Person Type</th>
+                                        <th>Person ID</th>
+                                        <th>Decision State</th>
+                                        <th>Confidence</th>
+                                        <th>Audit Details</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="recogLogsTableBody">
+                                    {% if recognition_logs %}
+                                        {% for log in recognition_logs %}
+                                        <tr>
+                                            <td class="font-monospace small">{{ log.timestamp }}</td>
+                                            <td class="font-monospace small text-truncate" style="max-width: 140px;">{{ log.session_id or 'LIVE_CAM' }}</td>
+                                            <td>
+                                                {% if log.person_type == 'FACULTY' %}
+                                                <span class="badge bg-primary">Faculty</span>
+                                                {% elif log.person_type == 'STUDENT' %}
+                                                <span class="badge bg-success">Student</span>
+                                                {% else %}
+                                                <span class="badge bg-danger">Unknown</span>
+                                                {% endif %}
+                                            </td>
+                                            <td class="fw-bold font-monospace">{{ log.person_id }}</td>
+                                            <td>
+                                                {% if log.decision_state == 'VERIFIED_STUDENT' or log.decision_state == 'ATTENDANCE_MARKED' %}
+                                                <span class="badge bg-success-subtle text-success border border-success">{{ log.decision_state }}</span>
+                                                {% elif log.decision_state == 'VERIFIED_FACULTY' %}
+                                                <span class="badge bg-primary-subtle text-primary border border-primary">EXCLUDED_FACULTY</span>
+                                                {% elif log.decision_state == 'OUTSIDE_CLASS' %}
+                                                <span class="badge bg-warning-subtle text-warning border border-warning">OUTSIDE_CLASS</span>
+                                                {% elif log.decision_state == 'AMBIGUOUS' or log.decision_state == 'LOW_QUALITY' %}
+                                                <span class="badge bg-warning-subtle text-dark border border-warning">{{ log.decision_state }}</span>
+                                                {% else %}
+                                                <span class="badge bg-danger-subtle text-danger border border-danger">{{ log.decision_state }}</span>
+                                                {% endif %}
+                                            </td>
+                                            <td class="font-monospace">{{ (log.confidence * 100)|round(1) }}%</td>
+                                            <td class="small text-muted text-truncate" style="max-width: 200px;">{{ log.metadata_json }}</td>
+                                        </tr>
+                                        {% endfor %}
+                                    {% else %}
+                                        <tr><td colspan="7" class="text-center text-muted py-3">No recognition decisions logged yet.</td></tr>
+                                    {% endif %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ============================================================= -->
+            <!-- 11. REPORTS & ANALYTICS                                        -->
+            <!-- ============================================================= -->
+            <div class="tab-pane fade" id="pane-analytics" role="tabpanel">
+                <div class="card-custom">
+                    <div class="card-header">
+                        <span><i class="fa-solid fa-chart-line me-2 text-success"></i>Department & Class Attendance Analytics</span>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <div class="p-3 border rounded text-center bg-light">
+                                    <div class="text-muted small fw-bold">TOTAL REGISTERED STUDENTS</div>
+                                    <h3 class="mt-2 text-primary">{{ students|length }}</h3>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="p-3 border rounded text-center bg-light">
+                                    <div class="text-muted small fw-bold">FACULTY IMMUNITY PROFILES</div>
+                                    <h3 class="mt-2 text-info">{{ faculty|length }}</h3>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="p-3 border rounded text-center bg-light">
+                                    <div class="text-muted small fw-bold">ACTIVE CLASS GROUPS</div>
+                                    <h3 class="mt-2 text-success">{{ class_groups|length }}</h3>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+                                    {% else %}
+                                        <tr><td colspan="8" class="text-center py-4 text-muted">No students enrolled.</td></tr>
+                                    {% endif %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ============================================================= -->
+            <!-- 2. STUDENT PHOTO UPLOAD (MAX 10 PHOTOS, VALIDATION, CONSENT)  -->
+            <!-- ============================================================= -->
+            <div class="tab-pane fade" id="pane-photos" role="tabpanel">
+                <div class="card-custom">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <span><i class="fa-solid fa-camera-retro me-2 text-success"></i>Student Biometric Photo Intake & Gallery</span>
+                        <span class="badge bg-info text-dark" id="photoLimitNotice">Max 10 Photographs Per Student</span>
+                    </div>
+                    <div class="card-body">
+                        <!-- Student Selector Dropdown (Upload pictures strictly for registered candidates) -->
+                        <div class="alert alert-info py-2 px-3 small mb-3 d-flex align-items-center gap-2">
+                            <i class="fa-solid fa-circle-info text-info fs-6"></i>
+                            <div><strong>Biometric Policy:</strong> Photographs can strictly be uploaded <strong>only for registered candidates</strong>. If a candidate is not yet in the list below, register them first under the <em>Student Management</em> tab.</div>
+                        </div>
+                        <div class="row g-3 mb-4 align-items-center bg-light p-3 rounded border">
+                            <div class="col-md-5">
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <label class="form-label small fw-semibold text-muted mb-0">Select Registered Candidate:</label>
+                                    <span class="badge bg-primary" id="registeredStudentsBadge">{{ students|length }} Registered Candidates</span>
+                                </div>
+                                <div class="input-group input-group-sm mb-2">
+                                    <span class="input-group-text bg-white"><i class="fa-solid fa-magnifying-glass text-muted"></i></span>
+                                    <input type="text" class="form-control" id="filterCandidateSelectInput" placeholder="Filter candidate list..." onkeyup="filterPhotoCandidateDropdown(this.value)">
+                                </div>
+                                <select class="form-select" id="photoStudentSelect" onchange="loadStudentPhotos(this.value)">
+                                    <option value="">-- Choose Registered Candidate --</option>
+                                    {% for s in students %}
+                                    <option value="{{ s.roll_number }}" data-name="{{ s.name }}" data-dept="{{ s.department }}" data-consent="{{ s.consent_given }}">{{ s.roll_number }} — {{ s.name }} ({{ s.department }} - {{ s.section }})</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-7">
+                                <div id="selectedStudentSummary" style="display: none;">
+                                    <div class="d-flex align-items-center gap-3">
+                                        <img id="selectedStudentPhotoThumb" src="" class="rounded-circle border" width="48" height="48" style="object-fit: cover;">
+                                        <div>
+                                            <div class="fw-bold text-dark fs-6" id="selectedStudentName"></div>
+                                            <div class="small text-muted" id="selectedStudentConsent"></div>
+                                        </div>
+                                        <div class="ms-auto text-end">
+                                            <span class="badge bg-primary fs-6" id="photoCountBadge">0 / 10 Photos</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Upload Photo Form -->
+                        <div class="card mb-4 border" id="uploadPhotoCard" style="display: none;">
+                            <div class="card-body">
+                                <h6 class="fw-bold text-dark mb-2"><i class="fa-solid fa-cloud-arrow-up me-2 text-primary"></i>Upload New Student Photograph</h6>
+                                <p class="small text-muted mb-3">Upload clear facial image files (JPEG, PNG). All photographs are validated and linked with the Student Roll ID.</p>
+                                <form id="singlePhotoUploadForm" class="row g-2 align-items-center">
+                                    <div class="col-md-8">
+                                        <input type="file" class="form-control" id="newPhotoFileInput" accept="image/jpeg,image/png" required>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <button type="submit" class="btn btn-success w-100" id="uploadPhotoSubmitBtn">
+                                            <i class="fa-solid fa-plus me-1"></i> Add Photograph
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+
+                        <!-- Photo Gallery Grid -->
+                        <div id="studentPhotosContainer">
+                            <div class="text-center py-5 text-muted" id="selectStudentPrompt">
+                                <i class="fa-regular fa-image display-4 mb-2 d-block"></i>
+                                Select a student above to inspect, upload, replace, or delete biometric photographs.
+                            </div>
+                            <div class="row g-3" id="photoGalleryRow" style="display: none;"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ============================================================= -->
+            <!-- 3. CLASS MANAGEMENT                                           -->
+            <!-- ============================================================= -->
+            <div class="tab-pane fade" id="pane-classes" role="tabpanel">
+                <div class="row g-4">
+                    <div class="col-md-4">
+                        <div class="card-custom h-100">
+                            <div class="card-header"><i class="fa-solid fa-plus me-2 text-primary"></i>Add New Class</div>
+                            <div class="card-body">
+                                <form id="createClassForm">
+                                    <div class="mb-3">
+                                        <label class="form-label small fw-semibold text-muted">Class Name</label>
+                                        <input type="text" class="form-control" id="newClassName" placeholder="e.g. B.Tech Year 3" required>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label small fw-semibold text-muted">Department</label>
+                                        <select class="form-select" id="newClassDept" required>
+                                            <option value="Textile Technology" selected>Textile Technology</option>
+                                            <option value="Textile Chemistry">Textile Chemistry</option>
+                                            <option value="Textile Engineering">Textile Engineering</option>
+                                            <option value="Computer Science & Engineering">Computer Science & Engineering</option>
+                                            <option value="Information Technology">Information Technology</option>
+                                            <option value="Artificial Intelligence & Data Science">Artificial Intelligence & Data Science</option>
+                                        </select>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label small fw-semibold text-muted">Section</label>
+                                        <input type="text" class="form-control" id="newClassSection" placeholder="e.g. Section A" required>
+                                    </div>
+                                    <button type="submit" class="btn btn-primary w-100">Create Class</button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-8">
+                        <div class="card-custom h-100">
+                            <div class="card-header"><i class="fa-solid fa-chalkboard me-2 text-info"></i>Authorized Classes & Sections</div>
+                            <div class="card-body p-0">
+                                <table class="table table-custom table-hover align-middle mb-0">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Class ID</th>
+                                            <th>Class Name</th>
+                                            <th>Department</th>
+                                            <th>Section</th>
+                                            <th class="text-end">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="classesTableBody">
+                                        {% for c in classes %}
+                                        <tr id="row-class-{{ c.class_id }}">
+                                            <td class="font-monospace small">{{ c.class_id }}</td>
+                                            <td class="fw-bold text-dark">{{ c.class_name }}</td>
+                                            <td>{{ c.department }}</td>
+                                            <td><span class="badge bg-light text-dark border">{{ c.section }}</span></td>
+                                            <td class="text-end">
+                                                <button class="btn btn-sm btn-outline-danger" onclick="deleteClass('{{ c.class_id }}')"><i class="fa-solid fa-trash-can"></i></button>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ============================================================= -->
+            <!-- 4. SUBJECT MANAGEMENT                                         -->
+            <!-- ============================================================= -->
+            <div class="tab-pane fade" id="pane-subjects" role="tabpanel">
+                <div class="row g-4">
+                    <div class="col-md-4">
+                        <div class="card-custom h-100">
+                            <div class="card-header"><i class="fa-solid fa-plus me-2 text-primary"></i>Add New Subject</div>
+                            <div class="card-body">
+                                <form id="createSubjectForm">
+                                    <div class="mb-3">
+                                        <label class="form-label small fw-semibold text-muted">Subject Name</label>
+                                        <input type="text" class="form-control" id="newSubjName" placeholder="e.g. Machine Learning & AI" required>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label small fw-semibold text-muted">Subject Code</label>
+                                        <input type="text" class="form-control" id="newSubjCode" placeholder="e.g. CS301">
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label small fw-semibold text-muted">Department</label>
+                                        <select class="form-select" id="newSubjDept" required>
+                                            <option value="Textile Technology" selected>Textile Technology</option>
+                                            <option value="Textile Chemistry">Textile Chemistry</option>
+                                            <option value="Textile Engineering">Textile Engineering</option>
+                                            <option value="Computer Science & Engineering">Computer Science & Engineering</option>
+                                            <option value="Information Technology">Information Technology</option>
+                                            <option value="Humanities">Humanities</option>
+                                        </select>
+                                    </div>
+                                    <button type="submit" class="btn btn-primary w-100">Create Subject</button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-8">
+                        <div class="card-custom h-100">
+                            <div class="card-header"><i class="fa-solid fa-book-bookmark me-2 text-warning"></i>Authorized Subjects</div>
+                            <div class="card-body p-0">
+                                <table class="table table-custom table-hover align-middle mb-0">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Code</th>
+                                            <th>Subject Name</th>
+                                            <th>Department</th>
+                                            <th class="text-end">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="subjectsTableBody">
+                                        {% for s in subjects %}
+                                        <tr id="row-subj-{{ s.subject_id }}">
+                                            <td class="font-monospace small fw-bold">{{ s.subject_code or s.subject_id }}</td>
+                                            <td class="fw-bold text-dark">{{ s.subject_name }}</td>
+                                            <td>{{ s.department }}</td>
+                                            <td class="text-end">
+                                                <button class="btn btn-sm btn-outline-danger" onclick="deleteSubject('{{ s.subject_id }}')"><i class="fa-solid fa-trash-can"></i></button>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ============================================================= -->
+            <!-- 5. TEACHER MANAGEMENT                                         -->
+            <!-- ============================================================= -->
+            <div class="tab-pane fade" id="pane-teachers" role="tabpanel">
+                <div class="row g-4">
+                    <div class="col-md-4">
+                        <div class="card-custom h-100">
+                            <div class="card-header"><i class="fa-solid fa-user-plus me-2 text-primary"></i>Register Teacher</div>
+                            <div class="card-body">
+                                <form id="createTeacherForm">
+                                    <div class="mb-3">
+                                        <label class="form-label small fw-semibold text-muted">Teacher Full Name</label>
+                                        <input type="text" class="form-control" id="newTeacherName" placeholder="e.g. Prof. Sharma" required>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label small fw-semibold text-muted">Department</label>
+                                        <select class="form-select" id="newTeacherDept" required>
+                                            <option value="Textile Technology" selected>Textile Technology</option>
+                                            <option value="Textile Chemistry">Textile Chemistry</option>
+                                            <option value="Textile Engineering">Textile Engineering</option>
+                                            <option value="Computer Science & Engineering">Computer Science & Engineering</option>
+                                            <option value="Information Technology">Information Technology</option>
+                                        </select>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label small fw-semibold text-muted">Email</label>
+                                        <input type="email" class="form-control" id="newTeacherEmail" placeholder="e.g. sharma@smartclassroom.edu">
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label small fw-semibold text-muted">Phone</label>
+                                        <input type="text" class="form-control" id="newTeacherPhone" placeholder="e.g. 9876543210">
+                                    </div>
+                                    <button type="submit" class="btn btn-primary w-100">Register Teacher</button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-8">
+                        <div class="card-custom h-100">
+                            <div class="card-header"><i class="fa-solid fa-chalkboard-user me-2 text-danger"></i>Authorized Faculty Members</div>
+                            <div class="card-body p-0">
+                                <table class="table table-custom table-hover align-middle mb-0">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Faculty Name</th>
+                                            <th>Department</th>
+                                            <th>Email</th>
+                                            <th>Phone</th>
+                                            <th class="text-end">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="teachersTableBody">
+                                        {% for t in teachers %}
+                                        <tr id="row-tch-{{ t.teacher_id }}">
+                                            <td class="fw-bold text-dark">{{ t.name }}</td>
+                                            <td>{{ t.department }}</td>
+                                            <td><small class="text-muted">{{ t.email or '-' }}</small></td>
+                                            <td><small class="text-muted">{{ t.phone or '-' }}</small></td>
+                                            <td class="text-end">
+                                                <button class="btn btn-sm btn-outline-danger" onclick="deleteTeacher('{{ t.teacher_id }}')"><i class="fa-solid fa-trash-can"></i></button>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ============================================================= -->
+            <!-- 6. CAMERA CONFIGURATION                                       -->
+            <!-- ============================================================= -->
+            <div class="tab-pane fade" id="pane-camera" role="tabpanel">
+                <div class="row g-4">
+                    <div class="col-md-6">
+                        <div class="card-custom h-100">
+                            <div class="card-header"><i class="fa-solid fa-video me-2 text-primary"></i>Classroom Camera Device Settings</div>
+                            <div class="card-body">
+                                <form id="cameraConfigForm">
+                                    <div class="mb-3">
+                                        <label class="form-label small fw-semibold text-muted">Hardware Camera Index</label>
+                                        <input type="number" class="form-control" id="cameraIndexInput" min="0" max="5" value="{{ config.camera_index }}">
+                                        <small class="text-muted">0 = Primary built-in or USB webcam; 1, 2 = External cameras</small>
+                                    </div>
+
+                                    <div class="mb-3">
+                                        <label class="form-label small fw-semibold text-muted">Recognition Confidence Threshold</label>
+                                        <div class="d-flex align-items-center gap-2">
+                                            <input type="range" class="form-range" id="confidenceRange" min="0.50" max="0.99" step="0.01" value="{{ config.confidence_threshold }}" oninput="document.getElementById('confValDisplay').innerText = this.value">
+                                            <span class="badge bg-primary fs-6" id="confValDisplay">{{ config.confidence_threshold }}</span>
+                                        </div>
+                                    </div>
+
+                                    <div class="mb-4">
+                                        <label class="form-label small fw-semibold text-muted">Consecutive Frames for Attendance Verification</label>
+                                        <input type="number" class="form-control" id="framesAttendanceInput" min="1" max="25" value="{{ config.frames_for_attendance }}">
+                                        <small class="text-muted">Sustained presence frames needed before attendance is recorded</small>
+                                    </div>
+
+                                    <button type="submit" class="btn btn-primary w-100">Save Camera Settings</button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-6">
+                        <div class="card-custom h-100">
+                            <div class="card-header"><i class="fa-solid fa-heart-pulse me-2 text-success"></i>Live Camera Diagnostics</div>
+                            <div class="card-body">
+                                <ul class="list-group list-group-flush mb-3">
+                                    <li class="list-group-item d-flex justify-content-between align-items-center px-0">
+                                        <div><div class="fw-semibold">Camera Connection Status</div><small class="text-muted">Real-time status</small></div>
+                                        <span class="badge bg-success">{{ camera_health.status or 'ONLINE' }}</span>
+                                    </li>
+                                    <li class="list-group-item d-flex justify-content-between align-items-center px-0">
+                                        <div><div class="fw-semibold">Stream Framerate</div><small class="text-muted">Processing speed</small></div>
+                                        <span class="badge bg-light text-dark border">{{ camera_health.fps }} FPS</span>
+                                    </li>
+                                    <li class="list-group-item d-flex justify-content-between align-items-center px-0">
+                                        <div><div class="fw-semibold">Processing Latency</div><small class="text-muted">Frame inferencing delay</small></div>
+                                        <span class="badge bg-light text-dark border">{{ camera_health.latency_ms }} ms</span>
+                                    </li>
+                                    <li class="list-group-item d-flex justify-content-between align-items-center px-0">
+                                        <div><div class="fw-semibold">Total Frames Processed</div><small class="text-muted">Session counter</small></div>
+                                        <span class="badge bg-primary">{{ camera_health.total_frames }}</span>
+                                    </li>
+                                </ul>
+
+                                <div class="alert alert-light border small text-muted">
+                                    <i class="fa-solid fa-shield-halved text-success me-1"></i>
+                                    <strong>Privacy Shield:</strong> The camera engine automatically identifies non-consenting faces as <code>Identity Protected</code> and masks their identities.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ============================================================= -->
+            <!-- 7. AI MODEL CONFIGURATION                                     -->
+            <!-- ============================================================= -->
+                        <!-- ============================================================= -->
+            <!-- 7. ADVANCED AI MODEL TRAINING & DATASET MANAGEMENT CONTROL CENTER -->
+            <!-- ============================================================= -->
+            <div class="tab-pane fade" id="pane-aimodel" role="tabpanel">
+                <!-- Section Nav Pills -->
+                <ul class="nav nav-pills mb-4 bg-white p-2 rounded border shadow-sm" id="aiSubTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active small py-2 px-3 fw-semibold" id="ai-tab-overview" data-bs-toggle="pill" data-bs-target="#ai-sec-overview" type="button" role="tab">
+                            <i class="fa-solid fa-gauge-high me-1 text-primary"></i> A. Model Overview
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link small py-2 px-3 fw-semibold" id="ai-tab-dataset" data-bs-toggle="pill" data-bs-target="#ai-sec-dataset" type="button" role="tab">
+                            <i class="fa-solid fa-images me-1 text-info"></i> B. Dataset Management
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link small py-2 px-3 fw-semibold" id="ai-tab-training" data-bs-toggle="pill" data-bs-target="#ai-sec-training" type="button" role="tab">
+                            <i class="fa-solid fa-microchip me-1 text-warning"></i> C. Training Control
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link small py-2 px-3 fw-semibold" id="ai-tab-eval" data-bs-toggle="pill" data-bs-target="#ai-sec-eval" type="button" role="tab">
+                            <i class="fa-solid fa-chart-pie me-1 text-success"></i> D. Evaluation & Versions
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link small py-2 px-3 fw-semibold" id="ai-tab-test" data-bs-toggle="pill" data-bs-target="#ai-sec-test" type="button" role="tab">
+                            <i class="fa-solid fa-flask-vial me-1 text-purple" style="color: #8b5cf6;"></i> E. Live Model Testing
+                        </button>
+                    </li>
+                </ul>
+
+                <div class="tab-content" id="aiSubTabContent">
+                    <!-- SECTION A: MODEL OVERVIEW -->
+                    <div class="tab-pane fade show active" id="ai-sec-overview" role="tabpanel">
+                        <div class="row g-4">
+                            <div class="col-lg-7">
+                                <div class="card-custom h-100">
+                                    <div class="card-header d-flex justify-content-between align-items-center">
+                                        <span><i class="fa-solid fa-brain me-2 text-purple" style="color: #8b5cf6;"></i>Active Multi-Person Face Recognition Pipeline</span>
+                                        <span class="badge bg-success" id="aiActiveVersionBadge">v1.0-Active</span>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="row g-3 mb-4">
+                                            <div class="col-sm-6">
+                                                <div class="p-3 bg-light rounded border text-center">
+                                                    <div class="text-muted small fw-bold">FACE DETECTOR (DNN)</div>
+                                                    <div class="fs-6 fw-bold text-dark mt-1">OpenCV YuNet ONNX</div>
+                                                    <span class="badge bg-info-subtle text-info mt-1">5-Point Landmarks</span>
+                                                </div>
+                                            </div>
+                                            <div class="col-sm-6">
+                                                <div class="p-3 bg-light rounded border text-center">
+                                                    <div class="text-muted small fw-bold">FEATURE EXTRACTOR</div>
+                                                    <div class="fs-6 fw-bold text-dark mt-1">FaceNet 128-D</div>
+                                                    <span class="badge bg-primary-subtle text-primary mt-1">Inception-ResNet L2</span>
+                                                </div>
+                                            </div>
+                                            <div class="col-sm-6">
+                                                <div class="p-3 bg-light rounded border text-center">
+                                                    <div class="text-muted small fw-bold">MATCHING ENGINE</div>
+                                                    <div class="fs-6 fw-bold text-dark mt-1">Exemplar Prototype Matcher</div>
+                                                    <span class="badge bg-success-subtle text-success mt-1">Hyperspherical Cosine</span>
+                                                </div>
+                                            </div>
+                                            <div class="col-sm-6">
+                                                <div class="p-3 bg-light rounded border text-center">
+                                                    <div class="text-muted small fw-bold">DATABASE BACKEND</div>
+                                                    <div class="fs-6 fw-bold text-dark mt-1" id="aiDbModeText">{{ health.db.mode }}</div>
+                                                    <span class="badge bg-secondary-subtle text-secondary mt-1">Dual-Storage Enabled</span>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <h6 class="fw-bold text-muted small text-uppercase mb-2">Calibrated Decision Boundaries (3-State Output)</h6>
+                                        <div class="table-responsive">
+                                            <table class="table table-sm table-bordered align-middle small mb-0">
+                                                <thead class="table-light">
+                                                    <tr>
+                                                        <th>Decision State</th>
+                                                        <th>Cosine Similarity</th>
+                                                        <th>Action Taken</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    <tr>
+                                                        <td><span class="badge bg-success">HIGH_CONFIDENCE</span></td>
+                                                        <td><strong id="aiThresholdHighText">&ge; 0.71</strong></td>
+                                                        <td class="text-muted">Attendance recorded automatically with streak validation</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><span class="badge bg-warning text-dark">REVIEW_REQUIRED</span></td>
+                                                        <td><strong id="aiThresholdReviewText">0.57 - 0.71</strong></td>
+                                                        <td class="text-muted">Logged as candidate; requires 10 consecutive matching frames</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><span class="badge bg-danger">UNKNOWN</span></td>
+                                                        <td><strong>&lt; 0.57</strong></td>
+                                                        <td class="text-muted">Rejected as unregistered stranger / outsider; no attendance</td>
+                                                    </tr>
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="col-lg-5">
+                                <div class="card-custom h-100">
+                                    <div class="card-header"><i class="fa-solid fa-chart-simple me-2 text-primary"></i>Model & Dataset Metrics</div>
+                                    <div class="card-body">
+                                        <ul class="list-group list-group-flush mb-4">
+                                            <li class="list-group-item d-flex justify-content-between align-items-center px-0">
+                                                <div><div class="fw-semibold">Enrolled Identities in Model</div><small class="text-muted">Active student prototype clusters</small></div>
+                                                <span class="badge bg-primary fs-6" id="aiTotalIdentities">2 Students</span>
+                                            </li>
+                                            <li class="list-group-item d-flex justify-content-between align-items-center px-0">
+                                                <div><div class="fw-semibold">Rank-1 Validation Accuracy</div><small class="text-muted">Cross-exemplar cosine evaluation</small></div>
+                                                <span class="badge bg-success fs-6" id="aiValAccuracy">84.6%</span>
+                                            </li>
+                                            <li class="list-group-item d-flex justify-content-between align-items-center px-0">
+                                                <div><div class="fw-semibold">Model Status</div><small class="text-muted">Live inference status</small></div>
+                                                <span class="badge bg-success" id="aiModelStatusBadge">ACTIVE & DEPLOYED</span>
+                                            </li>
+                                            <li class="list-group-item d-flex justify-content-between align-items-center px-0">
+                                                <div><div class="fw-semibold">Last Retrained</div><small class="text-muted">Model build timestamp</small></div>
+                                                <span class="small text-muted font-monospace" id="aiLastTrainedText">2026-11-02 14:52</span>
+                                            </li>
+                                        </ul>
+
+                                        <div class="d-grid gap-2">
+                                            <button type="button" class="btn btn-outline-primary" id="aiQuickAuditBtn">
+                                                <i class="fa-solid fa-stethoscope me-2"></i>Run Dataset Health Audit
+                                            </button>
+                                            <button type="button" class="btn btn-purple text-white" style="background: #8b5cf6;" id="aiQuickTrainBtn">
+                                                <i class="fa-solid fa-arrows-rotate me-2"></i>Start Training Pipeline
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- SECTION B: DATASET MANAGEMENT -->
+                    <div class="tab-pane fade" id="ai-sec-dataset" role="tabpanel">
+                        <div class="card-custom mb-4">
+                            <div class="card-header d-flex justify-content-between align-items-center">
+                                <span><i class="fa-solid fa-images me-2 text-info"></i>Student Dataset Integrity & Quality Monitor</span>
+                                <div class="d-flex gap-2">
+                                    <button class="btn btn-sm btn-outline-primary" id="runAuditBtn"><i class="fa-solid fa-rotate me-1"></i> Scan Dataset</button>
+                                    <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#groupPhotoModal"><i class="fa-solid fa-users-viewfinder me-1"></i> Group Photo Splitter</button>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <div class="row g-3 mb-4" id="datasetStatsRow">
+                                    <div class="col-md-3 col-6">
+                                        <div class="p-3 bg-light rounded text-center border">
+                                            <div class="text-muted small">Total Training Photos</div>
+                                            <div class="fs-4 fw-bold text-dark mt-1" id="statTotalImages">-</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3 col-6">
+                                        <div class="p-3 bg-light rounded text-center border">
+                                            <div class="text-muted small">Verified Aligned Faces</div>
+                                            <div class="fs-4 fw-bold text-success mt-1" id="statVerifiedFaces">-</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3 col-6">
+                                        <div class="p-3 bg-light rounded text-center border">
+                                            <div class="text-muted small">Blurry / Low Quality</div>
+                                            <div class="fs-4 fw-bold text-warning mt-1" id="statBlurryCount">-</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3 col-6">
+                                        <div class="p-3 bg-light rounded text-center border">
+                                            <div class="text-muted small">Duplicate Photos (dHash)</div>
+                                            <div class="fs-4 fw-bold text-danger mt-1" id="statDuplicateCount">-</div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <h6 class="fw-bold text-dark small text-uppercase mb-2">Student Enrolled Class Distribution</h6>
+                                <div class="table-responsive">
+                                    <table class="table table-hover table-bordered table-sm align-middle small mb-0">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th>Roll No</th>
+                                                <th>Student Name</th>
+                                                <th>Samples</th>
+                                                <th>Valid Faces</th>
+                                                <th>Quality Status</th>
+                                                <th>Dataset Readiness</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="studentSummariesTableBody">
+                                            <tr><td colspan="6" class="text-center py-3 text-muted">Click "Scan Dataset" to evaluate student datasets.</td></tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- SECTION C: TRAINING CONTROL & REAL-TIME PROGRESS -->
+                    <div class="tab-pane fade" id="ai-sec-training" role="tabpanel">
+                        <div class="card-custom mb-4">
+                            <div class="card-header d-flex justify-content-between align-items-center">
+                                <span><i class="fa-solid fa-microchip me-2 text-warning"></i>Intelligent 8-Stage Face Recognition Training Pipeline</span>
+                                <span class="badge bg-secondary" id="trainJobIdBadge">Idle</span>
+                            </div>
+                            <div class="card-body">
+                                <p class="text-muted small mb-3">
+                                    The pipeline ingests all verified student face crops from <code>people/</code>, applies YuNet 5-point alignment, filters Laplacian blur (&lt; 65), performs data augmentation, computes FaceNet 128-D L2-normalized embeddings, builds multi-prototype exemplar centroids, and calibrates genuine/impostor ROC thresholds.
+                                </p>
+
+                                <div class="mb-4">
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <span class="fw-bold small" id="trainStageLabel">Pipeline Stage: Ready</span>
+                                        <span class="fw-bold small font-monospace text-primary" id="trainPercentLabel">0%</span>
+                                    </div>
+                                    <div class="progress" style="height: 16px;">
+                                        <div class="progress-bar progress-bar-striped progress-bar-animated bg-primary" id="trainProgressBarMain" style="width: 0%"></div>
+                                    </div>
+                                </div>
+
+                                <div class="row g-3 mb-4">
+                                    <div class="col-md-3 col-6">
+                                        <div class="p-2 border rounded bg-light text-center">
+                                            <small class="text-muted d-block">Processed Images</small>
+                                            <strong class="fs-6" id="trainStatImages">0</strong>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3 col-6">
+                                        <div class="p-2 border rounded bg-light text-center">
+                                            <small class="text-muted d-block">Extracted Faces</small>
+                                            <strong class="fs-6" id="trainStatFaces">0</strong>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3 col-6">
+                                        <div class="p-2 border rounded bg-light text-center">
+                                            <small class="text-muted d-block">Generated Embeddings</small>
+                                            <strong class="fs-6" id="trainStatEmbeddings">0</strong>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3 col-6">
+                                        <div class="p-2 border rounded bg-light text-center">
+                                            <small class="text-muted d-block">Estimated Rank-1 Acc</small>
+                                            <strong class="fs-6 text-success" id="trainStatAcc">-</strong>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="form-label small fw-bold text-muted text-uppercase">Pipeline Execution Logs</label>
+                                    <div class="bg-dark text-success p-3 rounded font-monospace small" id="trainLogBox" style="max-height: 160px; overflow-y: auto;">
+                                        [Ready] AI Training Engine initialized. Click below to launch model training.
+                                    </div>
+                                </div>
+
+                                <div class="d-flex gap-3">
+                                    <button class="btn btn-success px-4 fw-semibold" id="startTrainingBtnMain">
+                                        <i class="fa-solid fa-play me-2"></i>Launch Full Model Training Job
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- SECTION D: MODEL EVALUATION & VERSIONS -->
+                    <div class="tab-pane fade" id="ai-sec-eval" role="tabpanel">
+                        <div class="card-custom mb-4">
+                            <div class="card-header d-flex justify-content-between align-items-center">
+                                <span><i class="fa-solid fa-code-branch me-2 text-success"></i>Model Version History & Safe Staging</span>
+                                <button class="btn btn-sm btn-outline-secondary" id="refreshVersionsBtn"><i class="fa-solid fa-rotate me-1"></i> Refresh</button>
+                            </div>
+                            <div class="card-body">
+                                <div class="table-responsive">
+                                    <table class="table table-hover table-bordered table-sm align-middle small mb-0">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th>Version ID</th>
+                                                <th>Created At</th>
+                                                <th>Identities</th>
+                                                <th>Embeddings</th>
+                                                <th>Rank-1 Acc</th>
+                                                <th>Calibrated High Thresh</th>
+                                                <th>Status</th>
+                                                <th>Deployment Action</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="modelVersionsTableBody">
+                                            <tr><td colspan="8" class="text-center py-3 text-muted">Loading version history...</td></tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- SECTION E: LIVE MODEL TESTING -->
+                    <div class="tab-pane fade" id="ai-sec-test" role="tabpanel">
+                        <div class="row g-4">
+                            <div class="col-lg-5">
+                                <div class="card-custom h-100">
+                                    <div class="card-header"><i class="fa-solid fa-upload me-2 text-purple" style="color: #8b5cf6;"></i>Upload Test Photo (Single or Group)</div>
+                                    <div class="card-body">
+                                        <p class="text-muted small">
+                                            Upload any test photograph or classroom snapshot to evaluate multi-person detection and recognition without altering live session attendance records.
+                                        </p>
+                                        <div class="mb-3">
+                                            <input type="file" class="form-control" id="testPhotoInput" accept="image/*">
+                                        </div>
+                                        <button class="btn btn-primary w-100 py-2 fw-semibold" id="runTestPhotoBtn">
+                                            <i class="fa-solid fa-bolt me-2"></i>Run Multi-Person Face Inference
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="col-lg-7">
+                                <div class="card-custom h-100">
+                                    <div class="card-header d-flex justify-content-between align-items-center">
+                                        <span><i class="fa-solid fa-eye me-2 text-info"></i>Inference Visualization & Bounding Boxes</span>
+                                        <span class="badge bg-secondary" id="testFaceCountBadge">0 Faces</span>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="text-center p-2 bg-light rounded border mb-3" style="min-height: 240px; display: flex; align-items: center; justify-content: center;" id="testPhotoPreviewContainer">
+                                            <span class="text-muted small">Upload an image and run inference to view detected faces.</span>
+                                        </div>
+
+                                        <div class="table-responsive">
+                                            <table class="table table-sm table-bordered align-middle small mb-0">
+                                                <thead class="table-light">
+                                                    <tr>
+                                                        <th>Face #</th>
+                                                        <th>Predicted Identity</th>
+                                                        <th>Confidence</th>
+                                                        <th>Status</th>
+                                                        <th>Laplacian Blur</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody id="testDetectionsTableBody">
+                                                    <tr><td colspan="5" class="text-center py-2 text-muted">No test detections yet.</td></tr>
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Group Photo Splitter Modal -->
+            <div class="modal fade" id="groupPhotoModal" tabindex="-1" aria-labelledby="groupPhotoModalLabel" aria-hidden="true">
+                <div class="modal-dialog modal-lg modal-dialog-centered">
+                    <div class="modal-content">
+                        <div class="modal-header bg-navy text-white" style="background: #0a192f;">
+                            <h5 class="modal-title" id="groupPhotoModalLabel"><i class="fa-solid fa-users-viewfinder me-2 text-info"></i>Group Photo Multi-Face Extractor & Splitter</h5>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body">
+                            <p class="text-muted small mb-3">
+                                <strong>Safety Rule:</strong> Never upload a group photograph directly as a single student's sample. Upload the group photo here; our AI pipeline extracts individual aligned face crops and allows you to verify and assign each face to the correct student.
+                            </p>
+                            <div class="mb-3">
+                                <input type="file" class="form-control" id="groupPhotoUploadInput" accept="image/*">
+                            </div>
+                            <button class="btn btn-outline-primary w-100 mb-4" id="processGroupPhotoBtn">
+                                <i class="fa-solid fa-wand-magic-sparkles me-2"></i>Extract & Align All Visible Faces
+                            </button>
+
+                            <div id="groupCropsResultContainer" style="display: none;">
+                                <h6 class="fw-bold small text-uppercase text-dark mb-2">Detected Faces for Assignment</h6>
+                                <div class="row g-3" id="groupCropsGrid"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+<!-- ============================================================= -->
+            <!-- 8. DATABASE SETTINGS                                          -->
+            <!-- ============================================================= -->
+            <div class="tab-pane fade" id="pane-database" role="tabpanel">
+                <div class="row g-4">
+                    <div class="col-md-6">
+                        <div class="card-custom h-100">
+                            <div class="card-header"><i class="fa-solid fa-database me-2 text-secondary"></i>MongoDB & SQLite Engine Settings</div>
+                            <div class="card-body">
+                                <div class="mb-3">
+                                    <label class="form-label small fw-semibold text-muted">Active Database Mode</label>
+                                    <div class="alert {% if health.db.is_mongo_connected %}alert-success{% else %}alert-warning{% endif %} py-2 small d-flex align-items-center justify-content-between" id="adminDbAlert">
+                                        <div>
+                                            <i class="fa-solid {% if health.db.is_mongo_connected %}fa-circle-check text-success{% else %}fa-triangle-exclamation text-warning{% endif %} me-2" id="adminDbIcon"></i>
+                                            <strong id="adminDbMode">{{ health.db.mode }}</strong>: <span id="adminDbStatusText">{{ health.db.status_message }}</span>
+                                        </div>
+                                        <button class="btn btn-sm btn-outline-success py-0 px-2" type="button" id="adminQuickReconnectBtn" title="Force Reconnect">
+                                            <i class="fa-solid fa-rotate me-1"></i> Reconnect
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="form-label small fw-semibold text-muted">Configured MongoDB URI</label>
+                                    <div class="input-group">
+                                        <input type="text" class="form-control font-monospace" id="adminMongoUri" value="{{ health.db.mongo_uri }}">
+                                        <button class="btn btn-outline-primary" type="button" id="adminTestMongoBtn"><i class="fa-solid fa-bolt me-1"></i> Test Ping</button>
+                                    </div>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="form-label small fw-semibold text-muted">Database Name</label>
+                                    <input type="text" class="form-control" id="adminMongoDb" value="{{ health.db.mongo_db }}">
+                                </div>
+
+                                <div class="mb-4">
+                                    <label class="form-label small fw-semibold text-muted">Local SQLite Fallback Path</label>
+                                    <input type="text" class="form-control font-monospace" value="{{ health.db.sqlite_path }}" readonly>
+                                </div>
+
+                                <button type="button" class="btn btn-outline-secondary w-100" id="adminSyncCsvBtn">
+                                    <i class="fa-solid fa-arrows-rotate me-2"></i>Sync from Students_Enrollment.csv
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-6">
+                        <div class="card-custom h-100">
+                            <div class="card-header"><i class="fa-solid fa-folder-tree me-2 text-primary"></i>Managed Database Collections</div>
+                            <div class="card-body p-0">
+                                <ul class="list-group list-group-flush">
+                                    <li class="list-group-item d-flex justify-content-between align-items-center p-3">
+                                        <div><div class="fw-semibold">Students</div><small class="text-muted">Unique index: roll_number</small></div>
+                                        <span class="badge bg-primary">{{ students|length }} docs</span>
+                                    </li>
+                                    <li class="list-group-item d-flex justify-content-between align-items-center p-3">
+                                        <div><div class="fw-semibold">Classroom_Sessions</div><small class="text-muted">Unique index: session_id</small></div>
+                                        <span class="badge bg-info text-dark">{{ all_sessions|length }} sessions</span>
+                                    </li>
+                                    <li class="list-group-item d-flex justify-content-between align-items-center p-3">
+                                        <div><div class="fw-semibold">Attendance</div><small class="text-muted">Compound unique: (session_id, roll_number)</small></div>
+                                        <span class="badge bg-success">Protected</span>
+                                    </li>
+                                    <li class="list-group-item d-flex justify-content-between align-items-center p-3">
+                                        <div><div class="fw-semibold">Session_Events & Notifications</div><small class="text-muted">Audit trail & neutral notices</small></div>
+                                        <span class="badge bg-secondary">Logged</span>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ============================================================= -->
+            <!-- 9. ATTENDANCE REPORTS & CSV EXPORTS                           -->
+            <!-- ============================================================= -->
+            <div class="tab-pane fade" id="pane-reports" role="tabpanel">
+                <div class="card-custom">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <span><i class="fa-solid fa-file-invoice me-2 text-success"></i>Comprehensive Attendance Reports & Exports</span>
+                        <div class="dropdown">
+                            <button class="btn btn-sm btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown"><i class="fa-solid fa-download me-1"></i> Quick Exports</button>
+                            <ul class="dropdown-menu dropdown-menu-end shadow">
+                                <li><a class="dropdown-item" href="{{ url_for('export_csv_route', subject='Enrollment') }}"><i class="fa-solid fa-users me-2"></i>Students Enrollment CSV</a></li>
+                                <li><a class="dropdown-item" href="{{ url_for('export_csv_route', subject='Hindi') }}"><i class="fa-solid fa-book me-2"></i>Hindi Attendance CSV</a></li>
+                                <li><a class="dropdown-item" href="{{ url_for('export_csv_route', subject='English') }}"><i class="fa-solid fa-language me-2"></i>English Attendance CSV</a></li>
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-custom table-hover align-middle mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Session ID</th>
+                                        <th>Subject</th>
+                                        <th>Class & Section</th>
+                                        <th>Faculty Name</th>
+                                        <th>Start Time</th>
+                                        <th>Status</th>
+                                        <th class="text-end">Download Report</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for s in all_sessions %}
+                                    <tr>
+                                        <td class="font-monospace small fw-bold">{{ s.session_id }}</td>
+                                        <td class="fw-semibold text-dark">{{ s.subject }}</td>
+                                        <td>{{ s.class_name }} ({{ s.section }})</td>
+                                        <td>{{ s.faculty_name }}</td>
+                                        <td><small class="text-muted">{{ s.session_start_time }}</small></td>
+                                        <td>
+                                            {% if s.status == 'ACTIVE' %}
+                                            <span class="badge bg-success">Active</span>
+                                            {% else %}
+                                            <span class="badge bg-secondary">Completed</span>
+                                            {% endif %}
+                                        </td>
+                                        <td class="text-end">
+                                            <a href="/export/session_csv/{{ s.session_id }}" class="btn btn-sm btn-outline-primary">
+                                                <i class="fa-solid fa-file-csv me-1"></i> Session CSV
+                                            </a>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ============================================================= -->
+            <!-- 10. USER AND ROLE MANAGEMENT                                  -->
+            <!-- ============================================================= -->
+            <div class="tab-pane fade" id="pane-users" role="tabpanel">
+                <div class="row g-4">
+                    <div class="col-md-4">
+                        <div class="card-custom h-100">
+                            <div class="card-header"><i class="fa-solid fa-user-plus me-2 text-primary"></i>Create User Account</div>
+                            <div class="card-body">
+                                <form id="createUserForm">
+                                    <div class="mb-3">
+                                        <label class="form-label small fw-semibold text-muted">Username</label>
+                                        <input type="text" class="form-control" id="newUsername" placeholder="e.g. jsmith" required>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label small fw-semibold text-muted">Password</label>
+                                        <input type="password" class="form-control" id="newUserPassword" placeholder="Enter password" required>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label small fw-semibold text-muted">Role</label>
+                                        <select class="form-select" id="newUserRole" required>
+                                            <option value="TEACHER" selected>TEACHER (Attendance & Sessions)</option>
+                                            <option value="ADMIN">ADMIN (Full System Access)</option>
+                                        </select>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label small fw-semibold text-muted">Full Name</label>
+                                        <input type="text" class="form-control" id="newUserName" placeholder="e.g. Dr. John Smith" required>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label small fw-semibold text-muted">Email</label>
+                                        <input type="email" class="form-control" id="newUserEmail" placeholder="e.g. jsmith@smartclassroom.edu">
+                                    </div>
+                                    <button type="submit" class="btn btn-primary w-100">Create Account</button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-8">
+                        <div class="card-custom h-100">
+                            <div class="card-header"><i class="fa-solid fa-users-gear me-2 text-dark"></i>System Users & Role Permissions</div>
+                            <div class="card-body p-0">
+                                <table class="table table-custom table-hover align-middle mb-0">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Username</th>
+                                            <th>Full Name</th>
+                                            <th>Role Permission</th>
+                                            <th>Email</th>
+                                            <th class="text-end">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="usersTableBody">
+                                        {% for u in users %}
+                                        <tr id="row-user-{{ u.username }}">
+                                            <td class="fw-bold font-monospace">{{ u.username }}</td>
+                                            <td class="text-dark">{{ u.name }}</td>
+                                            <td>
+                                                {% if u.role == 'ADMIN' %}
+                                                <span class="badge bg-success"><i class="fa-solid fa-shield-halved me-1"></i>ADMIN</span>
+                                                {% else %}
+                                                <span class="badge bg-primary"><i class="fa-solid fa-chalkboard-user me-1"></i>TEACHER</span>
+                                                {% endif %}
+                                            </td>
+                                            <td><small class="text-muted">{{ u.email or '-' }}</small></td>
+                                            <td class="text-end">
+                                                {% if u.username != 'admin' %}
+                                                <button class="btn btn-sm btn-outline-danger" onclick="deleteUser('{{ u.username }}')"><i class="fa-solid fa-trash-can"></i></button>
+                                                {% else %}
+                                                <span class="badge bg-light text-muted border">System</span>
+                                                {% endif %}
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Register Student (Class Scoped & Auto Face Enrollment) -->
+<div class="modal fade" id="addStudentModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fa-solid fa-user-plus text-primary me-2"></i>Register Student Profile & Face Biometrics</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="adminAddStudentForm">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label small fw-semibold text-muted">Student Full Name <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="modalNameInput" placeholder="e.g. John Doe" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-semibold text-muted">Enrollment Number / Student ID <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="modalRollInput" placeholder="e.g. TT2026_01" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-semibold text-muted">Email Address</label>
+                            <input type="email" class="form-control" id="modalEmailInput" placeholder="e.g. john@college.edu">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-semibold text-muted">Mobile Number</label>
+                            <input type="tel" class="form-control" id="modalMobileInput" placeholder="e.g. +91 9876543210">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-semibold text-muted">Degree <span class="text-danger">*</span></label>
+                            <select class="form-select" id="modalDegreeInput" onchange="updateModalStreamOptions(this.value)" required>
+                                <option value="B.Tech" selected>B.Tech (Bachelor of Technology)</option>
+                                <option value="M.Tech">M.Tech (Master of Technology)</option>
+                                <option value="BBA">BBA (Bachelor of Business Administration)</option>
+                                <option value="MBA">MBA (Master of Business Administration)</option>
+                                <option value="BCA">BCA (Bachelor of Computer Applications)</option>
+                                <option value="MCA">MCA (Master of Computer Applications)</option>
+                                <option value="Diploma">Diploma (Engineering & Tech)</option>
+                                <option value="Other">Other Degree / Program</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-semibold text-muted">Stream / Branch <span class="text-danger">*</span></label>
+                            <select class="form-select" id="modalStreamInput" required>
+                                <option value="Textile Technology" selected>Textile Technology</option>
+                                <option value="Textile Chemistry">Textile Chemistry</option>
+                                <option value="Textile Engineering">Textile Engineering</option>
+                                <option value="Computer Science & Engineering">Computer Science & Engineering</option>
+                                <option value="Information Technology">Information Technology</option>
+                                <option value="Artificial Intelligence & Data Science">Artificial Intelligence & Data Science</option>
+                                <option value="Electronics & Communication Engineering">Electronics & Communication Engineering</option>
+                                <option value="Mechanical Engineering">Mechanical Engineering</option>
+                                <option value="Civil Engineering">Civil Engineering</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-semibold text-muted">Academic Year <span class="text-danger">*</span></label>
+                            <select class="form-select" id="modalYearInput" required>
+                                <option value="1st Year">1st Year</option>
+                                <option value="2nd Year" selected>2nd Year</option>
+                                <option value="3rd Year">3rd Year</option>
+                                <option value="4th Year">4th Year</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-semibold text-muted">Academic Session <span class="text-danger">*</span></label>
+                            <select class="form-select" id="modalSessionInput" required>
+                                <option value="2024-25">2024-25</option>
+                                <option value="2025-26">2025-26</option>
+                                <option value="2026-27" selected>2026-27</option>
+                                <option value="2027-28">2027-28</option>
+                            </select>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label small fw-semibold text-muted">Student Photographs (Intake up to 10 photos)</label>
+                            <input type="file" class="form-control" id="modalPhotosInput" accept="image/jpeg,image/png" multiple onchange="previewModalPhotos(this)">
+                            <div class="form-text small text-muted">Clear, front-facing facial photos (JPEG/PNG). Automatically enrolled into FaceNet biometric index.</div>
+                            <div id="modalPhotosPreview" class="d-flex flex-wrap gap-2 mt-2"></div>
+                        </div>
+                        <div class="col-12">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="modalConsentInput" required checked>
+                                <label class="form-check-label small text-muted" for="modalConsentInput">
+                                    I confirm informed biometric consent has been authorized for classroom face attendance.
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Real-Time Automated Enrollment Stages Feedback -->
+                    <div id="enrollProgressBox" class="mt-3 p-3 rounded border bg-light d-none">
+                        <div class="d-flex align-items-center justify-content-between mb-2">
+                            <span class="small fw-bold text-dark"><i class="fa-solid fa-microchip text-primary me-1"></i>Automated Biometric Face Training</span>
+                            <span class="badge bg-primary" id="enrollProgressStateBadge">Processing</span>
+                        </div>
+                        <div class="progress mb-2" style="height: 6px;">
+                            <div id="enrollProgressBar" class="progress-bar progress-bar-striped progress-bar-animated bg-primary" style="width: 15%;"></div>
+                        </div>
+                        <div class="small text-muted" id="enrollProgressStatusText">Uploading student profile...</div>
+                        <div class="mt-2 pt-2 border-top row g-1" id="enrollStagesList" style="font-size: 0.78rem;">
+                            <div id="stage-1" class="col-6 text-secondary"><i class="fa-regular fa-circle me-1"></i> 1. Uploading</div>
+                            <div id="stage-2" class="col-6 text-secondary"><i class="fa-regular fa-circle me-1"></i> 2. Processing Image</div>
+                            <div id="stage-3" class="col-6 text-secondary"><i class="fa-regular fa-circle me-1"></i> 3. Detecting Face</div>
+                            <div id="stage-4" class="col-6 text-secondary"><i class="fa-regular fa-circle me-1"></i> 4. Generating Embedding</div>
+                            <div id="stage-5" class="col-6 text-secondary"><i class="fa-regular fa-circle me-1"></i> 5. Validating Face Data</div>
+                            <div id="stage-6" class="col-6 text-secondary"><i class="fa-regular fa-circle me-1"></i> 6. Enrollment Successful</div>
+                        </div>
+                    </div>
+
+                    <div class="mt-3">
+                        <button type="submit" class="btn btn-primary w-100" id="enrollSubmitBtn">Enroll Student & Train Face Biometrics</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Register Faculty Member (Isolated Biometric Namespace) -->
+<div class="modal fade" id="addFacultyModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fa-solid fa-user-tie text-primary me-2"></i>Register Faculty Member (Immunity)</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="adminAddFacultyForm">
+                    <div class="alert alert-info py-2 px-3 small mb-3">
+                        <i class="fa-solid fa-shield-halved me-1"></i> Faculty members are enrolled in an isolated namespace and will be highlighted in <strong>Pure Blue</strong> and automatically excluded from student attendance.
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold text-muted">Full Name <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="facultyModalName" placeholder="e.g. Dr. Arvind Kumar" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold text-muted">Faculty ID / Employee Code <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="facultyModalId" placeholder="e.g. FAC_TT_01" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold text-muted">Department <span class="text-danger">*</span></label>
+                        <select class="form-select" id="facultyModalDept" required>
+                            <option value="Textile Technology" selected>Textile Technology</option>
+                            <option value="Textile Chemistry">Textile Chemistry</option>
+                            <option value="Textile Engineering">Textile Engineering</option>
+                            <option value="Computer Science & Engineering">Computer Science & Engineering</option>
+                            <option value="Information Technology">Information Technology</option>
+                            <option value="Management Studies">Management Studies</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold text-muted">Designation</label>
+                        <select class="form-select" id="facultyModalDesig">
+                            <option value="Professor & Head">Professor & Head</option>
+                            <option value="Professor">Professor</option>
+                            <option value="Associate Professor" selected>Associate Professor</option>
+                            <option value="Assistant Professor">Assistant Professor</option>
+                            <option value="Lecturer">Lecturer</option>
+                        </select>
+                    </div>
+                    <div class="row g-2 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label small fw-semibold text-muted">Email Address</label>
+                            <input type="email" class="form-control" id="facultyModalEmail" placeholder="faculty@college.edu">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-semibold text-muted">Mobile / Phone</label>
+                            <input type="tel" class="form-control" id="facultyModalPhone" placeholder="+91 9876543210">
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold text-muted">Faculty Photograph</label>
+                        <input type="file" class="form-control" id="facultyModalPhoto" accept="image/jpeg,image/png">
+                        <div class="form-text small text-muted">Clear front portrait for exclusion biometric model.</div>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100" id="facultyModalSubmitBtn">Enroll Faculty (Exclude from Attendance)</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+// Dynamic Academic Stream Catalog
+const STREAM_MAP = {
+    'B.Tech': [
+        'Textile Technology',
+        'Textile Chemistry',
+        'Textile Engineering',
+        'Computer Science & Engineering',
+        'Information Technology',
+        'Artificial Intelligence & Data Science',
+        'Electronics & Communication Engineering',
+        'Mechanical Engineering',
+        'Civil Engineering'
+    ],
+    'M.Tech': [
+        'Textile Engineering',
+        'Computer Science & Engineering',
+        'VLSI Design',
+        'Thermal Engineering'
+    ],
+    'MBA': [
+        'Marketing',
+        'Finance',
+        'Human Resources',
+        'Operations & Supply Chain',
+        'Business Analytics'
+    ],
+    'BBA': [
+        'General Management',
+        'Digital Marketing',
+        'International Business'
+    ],
+    'BCA': [
+        'Computer Applications',
+        'Cloud Computing',
+        'Data Science'
+    ],
+    'MCA': [
+        'Computer Applications',
+        'Software Engineering',
+        'Cybersecurity'
+    ],
+    'Diploma': [
+        'Textile Manufacturing',
+        'Textile Processing',
+        'Mechanical Engineering',
+        'Electrical Engineering',
+        'Civil Engineering'
+    ],
+    'Other': [
+        'General Studies',
+        'Applied Sciences'
+    ]
+};
+
+function updateModalStreamOptions(deg) {
+    const streamSel = document.getElementById('modalStreamInput');
+    if (!streamSel) return;
+    const streams = STREAM_MAP[deg] || STREAM_MAP['B.Tech'];
+    streamSel.innerHTML = streams.map((st, i) => `<option value="${st}" ${i === 0 ? 'selected' : ''}>${st}</option>`).join('');
+}
+
+function previewModalPhotos(input) {
+    const box = document.getElementById('modalPhotosPreview');
+    if (!box) return;
+    box.innerHTML = '';
+    if (!input.files || input.files.length === 0) return;
+
+    Array.from(input.files).slice(0, 10).forEach(file => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const img = document.createElement('img');
+            img.src = e.target.result;
+            img.className = 'rounded border shadow-sm';
+            img.style.width = '52px';
+            img.style.height = '52px';
+            img.style.objectFit = 'cover';
+            box.appendChild(img);
+        };
+        reader.readAsDataURL(file);
+    });
+}
+
+// Dynamic helper to insert student row into table without requiring page reload
+function appendStudentRow(s) {
+    const tbody = document.getElementById('studentsTableBody');
+    if (!tbody) return;
+
+    const emptyRow = tbody.querySelector('tr td[colspan]');
+    if (emptyRow) emptyRow.closest('tr').remove();
+
+    let existing = document.getElementById(`row-student-${s.roll_number}`);
+    if (existing) existing.remove();
+
+    const tr = document.createElement('tr');
+    tr.id = `row-student-${s.roll_number}`;
+    tr.className = 'table-success';
+    tr.innerHTML = `
+        <td>
+            <img src="${s.profile_photo || '/static/profiles/' + s.roll_number + '.jpg'}" class="rounded-circle border" width="34" height="34" style="object-fit: cover;" onerror="this.src='https://ui-avatars.com/api/?name=${encodeURIComponent(s.name)}&background=0a192f&color=64ffda'">
+        </td>
+        <td class="fw-bold font-monospace">${s.roll_number}</td>
+        <td class="fw-semibold text-dark">${s.name}</td>
+        <td>
+            <span class="badge bg-light text-dark border">${s.degree || 'B.Tech'}</span>
+            <small class="text-secondary d-block">${s.stream || s.department || 'Textile Technology'}</small>
+        </td>
+        <td>
+            <span class="badge bg-secondary-subtle text-dark">${s.academic_year || '2nd Year'}</span>
+            <small class="text-muted d-block">${s.academic_session || '2026-27'}</small>
+        </td>
+        <td>
+            <span class="badge bg-success-subtle text-success border border-success"><i class="fa-solid fa-check me-1"></i>FaceNet 128D</span>
+        </td>
+        <td><span class="badge bg-success">${s.enrollment_status || 'Active'}</span></td>
+        <td class="text-end">
+            <button class="btn btn-sm btn-outline-secondary manage-photos-btn" data-roll="${s.roll_number}" data-name="${s.name}" title="Manage Photos">
+                <i class="fa-solid fa-camera"></i>
+            </button>
+            <button class="btn btn-sm btn-outline-danger delete-student-btn" data-roll="${s.roll_number}" data-name="${s.name}" title="Permanently Delete">
+                <i class="fa-solid fa-trash-can"></i>
+            </button>
+        </td>
+    `;
+    tbody.prepend(tr);
+    bindStudentRowActions(tr);
+    setTimeout(() => tr.classList.remove('table-success'), 2500);
+}
+
+// Dynamic helper to add option to Photo Upload candidate dropdown
+function appendStudentPhotoOption(s) {
+    const sel = document.getElementById('photoStudentSelect');
+    if (!sel) return;
+    let opt = sel.querySelector(`option[value="${s.roll_number}"]`);
+    if (!opt) {
+        opt = document.createElement('option');
+        opt.value = s.roll_number;
+        sel.appendChild(opt);
+    }
+    opt.dataset.name = s.name;
+    opt.dataset.dept = s.stream || s.department;
+    opt.dataset.consent = s.consent_given ? '1' : '0';
+    opt.textContent = `${s.roll_number} — ${s.name} (${s.degree || 'B.Tech'} ${s.stream || s.department})`;
+
+    const badge = document.getElementById('registeredStudentsBadge');
+    if (badge) {
+        const count = sel.options.length - 1;
+        badge.innerText = `${count} Registered Candidates`;
+    }
+}
+
+function bindStudentRowActions(scope) {
+    const root = scope || document;
+    root.querySelectorAll('.manage-photos-btn').forEach(btn => {
+        btn.onclick = () => {
+            const roll = btn.dataset.roll;
+            document.getElementById('tab-photos').click();
+            const sel = document.getElementById('photoStudentSelect');
+            sel.value = roll;
+            loadStudentPhotos(roll);
+        };
+    });
+    root.querySelectorAll('.delete-student-btn').forEach(btn => {
+        btn.onclick = async () => {
+            const roll = btn.dataset.roll;
+            const name = btn.dataset.name;
+            if (!confirm(`Permanently delete student ${name} (Roll: ${roll}) and all biometric photographs?`)) return;
+            try {
+                const resp = await fetch(`/api/student/${roll}`, { method: 'DELETE' });
+                const data = await resp.json();
+                if (data.success) {
+                    showToast(data.message, 'success');
+                    const row = document.getElementById(`row-student-${roll}`);
+                    if (row) row.remove();
+                    const opt = document.querySelector(`#photoStudentSelect option[value="${roll}"]`);
+                    if (opt) opt.remove();
+                    const badge = document.getElementById('registeredStudentsBadge');
+                    if (badge) {
+                        const sel = document.getElementById('photoStudentSelect');
+                        badge.innerText = `${sel.options.length - 1} Registered Candidates`;
+                    }
+                } else {
+                    showToast(data.message, 'danger');
+                }
+            } catch (e) {
+                showToast('Delete error: ' + e.message, 'danger');
+            }
+        };
+    });
+}
+
+function filterPhotoCandidateDropdown(q) {
+    const filter = (q || '').toLowerCase().trim();
+    const sel = document.getElementById('photoStudentSelect');
+    if (!sel) return;
+    for (let i = 1; i < sel.options.length; i++) {
+        const opt = sel.options[i];
+        const text = opt.textContent.toLowerCase();
+        opt.style.display = text.includes(filter) ? '' : 'none';
+    }
+}
+
+// Register New Student Form Submission with Automated Face Training
+document.getElementById('adminAddStudentForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const roll = document.getElementById('modalRollInput').value.trim();
+    const name = document.getElementById('modalNameInput').value.trim();
+    const email = document.getElementById('modalEmailInput').value.trim();
+    const mobile = document.getElementById('modalMobileInput').value.trim();
+    const degree = document.getElementById('modalDegreeInput').value;
+    const stream = document.getElementById('modalStreamInput').value;
+    const year = document.getElementById('modalYearInput').value;
+    const session = document.getElementById('modalSessionInput').value;
+    const consent = document.getElementById('modalConsentInput').checked;
+    const photoInput = document.getElementById('modalPhotosInput');
+
+    if (!consent) {
+        showToast('Biometric consent must be authorized to register student.', 'warning');
+        return;
+    }
+
+    const btn = document.getElementById('enrollSubmitBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Enrolling & Training Model...';
+
+    // Show Progress Box
+    const progBox = document.getElementById('enrollProgressBox');
+    const progBar = document.getElementById('enrollProgressBar');
+    const progText = document.getElementById('enrollProgressStatusText');
+    const stateBadge = document.getElementById('enrollProgressStateBadge');
+    progBox.classList.remove('d-none');
+
+    const updateStage = (stageIdx, label, pct, statusType = 'primary') => {
+        progBar.style.width = `${pct}%`;
+        progText.innerText = label;
+        stateBadge.className = `badge bg-${statusType}`;
+        stateBadge.innerText = label;
+        for (let i = 1; i <= 6; i++) {
+            const el = document.getElementById(`stage-${i}`);
+            if (i < stageIdx) {
+                el.className = 'col-6 text-success fw-bold';
+                el.innerHTML = `<i class="fa-solid fa-circle-check me-1"></i> ${el.innerText.replace(/^[0-9.\s]+/, '')}`;
+            } else if (i === stageIdx) {
+                el.className = `col-6 text-${statusType} fw-bold`;
+                el.innerHTML = `<span class="spinner-border spinner-border-sm me-1" style="width:10px;height:10px;"></span> ${el.innerText.replace(/^[0-9.\s]+/, '')}`;
+            }
+        }
+    };
+
+    updateStage(1, 'Uploading Student Data...', 20);
+
+    const formData = new FormData();
+    formData.append('name', name);
+    formData.append('roll_number', roll);
+    formData.append('student_id', roll);
+    formData.append('email', email);
+    formData.append('mobile', mobile);
+    formData.append('degree', degree);
+    formData.append('stream', stream);
+    formData.append('academic_year', year);
+    formData.append('academic_session', session);
+    formData.append('consent_given', consent ? '1' : '0');
+
+    if (photoInput && photoInput.files.length > 0) {
+        Array.from(photoInput.files).forEach((f) => {
+            formData.append('photos', f);
+        });
+    }
+
+    try {
+        setTimeout(() => updateStage(2, 'Processing Image Quality...', 40), 300);
+        setTimeout(() => updateStage(3, 'Detecting Face & Landmarks...', 60), 600);
+        setTimeout(() => updateStage(4, 'Generating FaceNet Embedding...', 80), 900);
+
+        const resp = await fetch('/api/admin/students/register', {
+            method: 'POST',
+            body: formData
+        });
+        const data = await resp.json();
+
+        if (data.success) {
+            updateStage(5, 'Validating Face Data...', 95);
+            setTimeout(() => {
+                updateStage(6, 'Face Enrollment Successful', 100, 'success');
+                showToast(data.message, 'success');
+
+                const studentObj = data.student || {
+                    roll_number: roll,
+                    name: name,
+                    email: email,
+                    mobile: mobile,
+                    degree: degree,
+                    stream: stream,
+                    academic_year: year,
+                    academic_session: session,
+                    consent_given: 1,
+                    enrollment_status: 'Active',
+                    face_enrollment_status: data.face_enrollment_status || 'ENROLLED',
+                    profile_photo: `/static/profiles/${roll}.jpg`
+                };
+                appendStudentRow(studentObj);
+                appendStudentPhotoOption(studentObj);
+
+                setTimeout(() => {
+                    const modalEl = document.getElementById('addStudentModal');
+                    const modalObj = bootstrap.Modal.getOrCreateInstance(modalEl);
+                    modalObj.hide();
+                    progBox.classList.add('d-none');
+                    document.getElementById('adminAddStudentForm').reset();
+                    document.getElementById('modalPhotosPreview').innerHTML = '';
+                }, 1400);
+            }, 500);
+        } else {
+            progBar.classList.replace('bg-primary', 'bg-danger');
+            stateBadge.className = 'badge bg-danger';
+            stateBadge.innerText = data.face_enrollment_status || 'Registration Failed';
+            progText.innerText = data.message || 'Error occurred';
+            showToast(data.message, 'danger');
+        }
+    } catch (err) {
+        progBar.classList.replace('bg-primary', 'bg-danger');
+        stateBadge.className = 'badge bg-danger';
+        stateBadge.innerText = 'Network Error';
+        progText.innerText = err.message;
+        showToast('Registration error: ' + err.message, 'danger');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = 'Enroll Student & Train Face Biometrics';
+    }
+});
+
+// Register Faculty Member Form Submission
+document.getElementById('adminAddFacultyForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const name = document.getElementById('facultyModalName').value.trim();
+    const fid = document.getElementById('facultyModalId').value.trim();
+    const dept = document.getElementById('facultyModalDept').value;
+    const desig = document.getElementById('facultyModalDesig').value;
+    const email = document.getElementById('facultyModalEmail').value.trim();
+    const phone = document.getElementById('facultyModalPhone').value.trim();
+    const photoInput = document.getElementById('facultyModalPhoto');
+
+    const btn = document.getElementById('facultyModalSubmitBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Enrolling Faculty...';
+
+    const formData = new FormData();
+    formData.append('name', name);
+    formData.append('faculty_id', fid);
+    formData.append('department', dept);
+    formData.append('designation', desig);
+    formData.append('email', email);
+    formData.append('phone', phone);
+    if (photoInput && photoInput.files.length > 0) {
+        formData.append('photo', photoInput.files[0]);
+    }
+
+    try {
+        const resp = await fetch('/api/admin/faculty/create', {
+            method: 'POST',
+            body: formData
+        });
+        const data = await resp.json();
+        if (data.success) {
+            showToast(data.message, 'success');
+            const modalEl = document.getElementById('addFacultyModal');
+            bootstrap.Modal.getOrCreateInstance(modalEl).hide();
+            document.getElementById('adminAddFacultyForm').reset();
+            setTimeout(() => window.location.reload(), 1000);
+        } else {
+            showToast(data.message, 'danger');
+        }
+    } catch (err) {
+        showToast('Faculty registration error: ' + err.message, 'danger');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = 'Enroll Faculty (Exclude from Attendance)';
+    }
+});
+
+// Delete Faculty Member Handler
+document.addEventListener('click', async (e) => {
+    const btn = e.target.closest('.delete-faculty-btn');
+    if (!btn) return;
+    const fid = btn.dataset.fid;
+    const name = btn.dataset.name;
+    if (!confirm(`Delete faculty member ${name} (${fid})? This will remove their biometric exclusion profile.`)) return;
+    try {
+        const resp = await fetch(`/api/admin/faculty/${fid}/delete`, { method: 'POST' });
+        const data = await resp.json();
+        if (data.success) {
+            showToast(data.message, 'success');
+            const row = document.getElementById(`row-faculty-${fid}`);
+            if (row) row.remove();
+        } else {
+            showToast(data.message, 'danger');
+        }
+    } catch (err) {
+        showToast('Delete error: ' + err.message, 'danger');
+    }
+});
+
+// Load Recognition Audit Logs
+async function loadRecognitionLogs() {
+    try {
+        const resp = await fetch('/api/admin/recognition-logs?limit=50');
+        const data = await resp.json();
+        if (data.success && data.logs) {
+            const tbody = document.getElementById('recogLogsTableBody');
+            if (!tbody) return;
+            tbody.innerHTML = data.logs.map(log => {
+                let badgeClass = 'bg-danger';
+                if (log.decision_state === 'VERIFIED_STUDENT' || log.decision_state === 'ATTENDANCE_MARKED') badgeClass = 'bg-success';
+                else if (log.decision_state === 'VERIFIED_FACULTY') badgeClass = 'bg-primary';
+                else if (log.decision_state === 'OUTSIDE_CLASS') badgeClass = 'bg-warning text-dark';
+                else if (log.decision_state === 'AMBIGUOUS' || log.decision_state === 'LOW_QUALITY') badgeClass = 'bg-secondary';
+
+                return `
+                    <tr>
+                        <td class="font-monospace small">${log.timestamp}</td>
+                        <td class="font-monospace small text-truncate" style="max-width:140px;">${log.session_id || 'LIVE_CAM'}</td>
+                        <td><span class="badge ${log.person_type === 'FACULTY' ? 'bg-primary' : (log.person_type === 'STUDENT' ? 'bg-success' : 'bg-secondary')}">${log.person_type}</span></td>
+                        <td class="fw-bold font-monospace">${log.person_id}</td>
+                        <td><span class="badge ${badgeClass}">${log.decision_state}</span></td>
+                        <td class="font-monospace">${Math.round((log.confidence || 0) * 100)}%</td>
+                        <td class="small text-muted text-truncate" style="max-width:200px;">${log.metadata_json || ''}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+    } catch (err) {
+        console.warn('Error loading recognition logs:', err);
+    }
+}
+
+// Load Student Photos in Admin Photo Module
+let currentSelectedRoll = null;
+
+async function loadStudentPhotos(roll) {
+    currentSelectedRoll = roll;
+    const summaryBox = document.getElementById('selectedStudentSummary');
+    const uploadCard = document.getElementById('uploadPhotoCard');
+    const galleryRow = document.getElementById('photoGalleryRow');
+    const promptBox = document.getElementById('selectStudentPrompt');
+
+    if (!roll) {
+        summaryBox.style.display = 'none';
+        uploadCard.style.display = 'none';
+        galleryRow.style.display = 'none';
+        promptBox.style.display = 'block';
+        return;
+    }
+
+    const selectEl = document.getElementById('photoStudentSelect');
+    const selectedOpt = selectEl.options[selectEl.selectedIndex];
+    const sName = selectedOpt.dataset.name;
+    const sConsent = selectedOpt.dataset.consent === '1';
+
+    summaryBox.style.display = 'block';
+    uploadCard.style.display = 'block';
+    galleryRow.style.display = 'flex';
+    promptBox.style.display = 'none';
+
+    document.getElementById('selectedStudentName').innerText = `${sName} (Roll: ${roll})`;
+    document.getElementById('selectedStudentPhotoThumb').src = `/static/profiles/${roll}.jpg`;
+    document.getElementById('selectedStudentConsent').innerHTML = sConsent
+        ? '<span class="text-success"><i class="fa-solid fa-circle-check me-1"></i>Informed Consent Authorized</span>'
+        : '<span class="text-danger"><i class="fa-solid fa-circle-xmark me-1"></i>Biometric Consent Not Authorized</span>';
+
+    try {
+        const resp = await fetch(`/api/admin/students/${roll}/photos`);
+        const data = await resp.json();
+        if (data.success) {
+            renderPhotoGallery(data.photos);
+        }
+    } catch (e) {
+        showToast('Error loading photos: ' + e.message, 'danger');
+    }
+}
+
+function renderPhotoGallery(photos) {
+    const galleryRow = document.getElementById('photoGalleryRow');
+    const badge = document.getElementById('photoCountBadge');
+    badge.innerText = `${photos.length} / 10 Photos`;
+    galleryRow.innerHTML = '';
+
+    if (photos.length === 0) {
+        galleryRow.innerHTML = '<div class="col-12 text-center py-4 text-muted small">No photographs uploaded yet. Use the upload box above (up to 10 photos).</div>';
+        return;
+    }
+
+    photos.forEach(p => {
+        const col = document.createElement('div');
+        col.className = 'col-sm-6 col-md-4 col-xl-3';
+        col.innerHTML = `
+            <div class="card h-100 border shadow-sm">
+                <img src="${p.url}" class="card-img-top" style="height: 160px; object-fit: cover;">
+                <div class="card-body p-2 text-center">
+                    <div class="fw-bold text-dark small">${p.filename}</div>
+                    <div class="text-muted" style="font-size: 0.72rem;">${p.size_kb} KB • ${p.modified}</div>
+                    <div class="d-flex gap-1 justify-content-center mt-2">
+                        <label class="btn btn-xs btn-outline-primary" title="Replace this photo" style="font-size: 0.72rem;">
+                            <i class="fa-solid fa-arrows-rotate me-1"></i>Replace
+                            <input type="file" class="d-none" accept="image/jpeg,image/png" onchange="replacePhoto('${p.filename}', this)">
+                        </label>
+                        <button class="btn btn-xs btn-outline-danger" style="font-size: 0.72rem;" onclick="deletePhoto('${p.filename}')" title="Delete">
+                            <i class="fa-solid fa-trash-can"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+        galleryRow.appendChild(col);
+    });
+}
+
+// Upload New Photo (Max 10 enforcement)
+document.getElementById('singlePhotoUploadForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (!currentSelectedRoll) return;
+
+    const fileInput = document.getElementById('newPhotoFileInput');
+    if (!fileInput.files || fileInput.files.length === 0) return;
+
+    const formData = new FormData();
+    formData.append('photo', fileInput.files[0]);
+
+    const btn = document.getElementById('uploadPhotoSubmitBtn');
+    btn.disabled = true;
+
+    try {
+        const resp = await fetch(`/api/admin/students/${currentSelectedRoll}/photos/upload`, {
+            method: 'POST',
+            body: formData
+        });
+        const data = await resp.json();
+        if (data.success) {
+            showToast(data.message, 'success');
+            fileInput.value = '';
+            loadStudentPhotos(currentSelectedRoll);
+        } else {
+            showToast(data.message, 'warning');
+        }
+    } catch (err) {
+        showToast('Upload error: ' + err.message, 'danger');
+    } finally {
+        btn.disabled = false;
+    }
+});
+
+// Delete specific photo
+async function deletePhoto(filename) {
+    if (!confirm(`Delete ${filename}?`)) return;
+    try {
+        const resp = await fetch(`/api/admin/students/${currentSelectedRoll}/photos/${filename}/delete`, { method: 'POST' });
+        const data = await resp.json();
+        if (data.success) {
+            showToast(data.message, 'info');
+            loadStudentPhotos(currentSelectedRoll);
+        }
+    } catch (e) {
+        showToast('Delete error: ' + e.message, 'danger');
+    }
+}
+
+// Replace specific photo
+async function replacePhoto(filename, inputEl) {
+    if (!inputEl.files || inputEl.files.length === 0) return;
+    const formData = new FormData();
+    formData.append('photo', inputEl.files[0]);
+
+    try {
+        const resp = await fetch(`/api/admin/students/${currentSelectedRoll}/photos/${filename}/replace`, {
+            method: 'POST',
+            body: formData
+        });
+        const data = await resp.json();
+        if (data.success) {
+            showToast(data.message, 'success');
+            loadStudentPhotos(currentSelectedRoll);
+        }
+    } catch (e) {
+        showToast('Replace error: ' + e.message, 'danger');
+    }
+}
+
+// Direct button to open photo manager for a student
+document.querySelectorAll('.manage-photos-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        const roll = btn.dataset.roll;
+        document.getElementById('tab-photos').click();
+        const sel = document.getElementById('photoStudentSelect');
+        sel.value = roll;
+        loadStudentPhotos(roll);
+    });
+});
+
+// Delete student
+document.querySelectorAll('.delete-student-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+        const roll = btn.dataset.roll;
+        const name = btn.dataset.name;
+        if (!confirm(`Permanently delete student ${name} (Roll: ${roll}) and all biometric photographs?`)) return;
+        try {
+            const resp = await fetch(`/api/student/${roll}`, { method: 'DELETE' });
+            const data = await resp.json();
+            if (data.success) {
+                showToast(data.message, 'success');
+                setTimeout(() => window.location.reload(), 800);
+            }
+        } catch (e) {
+            showToast('Delete error: ' + e.message, 'danger');
+        }
+    });
+});
+
+// Class Management
+document.getElementById('createClassForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const cName = document.getElementById('newClassName').value.trim();
+    const dept = document.getElementById('newClassDept').value.trim();
+    const sec = document.getElementById('newClassSection').value.trim();
+    const resp = await fetch('/api/admin/classes/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ class_name: cName, department: dept, section: sec })
+    });
+    const d = await resp.json();
+    if (d.success) { showToast(d.message, 'success'); setTimeout(() => window.location.reload(), 700); }
+    else showToast(d.message, 'danger');
+});
+
+async function deleteClass(classId) {
+    if (!confirm('Delete this class?')) return;
+    const resp = await fetch(`/api/admin/classes/${classId}/delete`, { method: 'POST' });
+    const d = await resp.json();
+    if (d.success) { showToast(d.message, 'info'); document.getElementById(`row-class-${classId}`).remove(); }
+}
+
+// Subject Management
+document.getElementById('createSubjectForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const sName = document.getElementById('newSubjName').value.trim();
+    const sCode = document.getElementById('newSubjCode').value.trim();
+    const dept = document.getElementById('newSubjDept').value.trim();
+    const resp = await fetch('/api/admin/subjects/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ subject_name: sName, subject_code: sCode, department: dept })
+    });
+    const d = await resp.json();
+    if (d.success) { showToast(d.message, 'success'); setTimeout(() => window.location.reload(), 700); }
+    else showToast(d.message, 'danger');
+});
+
+async function deleteSubject(subId) {
+    if (!confirm('Delete this subject?')) return;
+    const resp = await fetch(`/api/admin/subjects/${subId}/delete`, { method: 'POST' });
+    const d = await resp.json();
+    if (d.success) { showToast(d.message, 'info'); document.getElementById(`row-subj-${subId}`).remove(); }
+}
+
+// Teacher Management
+document.getElementById('createTeacherForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const name = document.getElementById('newTeacherName').value.trim();
+    const dept = document.getElementById('newTeacherDept').value.trim();
+    const email = document.getElementById('newTeacherEmail').value.trim();
+    const phone = document.getElementById('newTeacherPhone').value.trim();
+    const resp = await fetch('/api/admin/teachers/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: name, department: dept, email: email, phone: phone })
+    });
+    const d = await resp.json();
+    if (d.success) { showToast(d.message, 'success'); setTimeout(() => window.location.reload(), 700); }
+    else showToast(d.message, 'danger');
+});
+
+async function deleteTeacher(tId) {
+    if (!confirm('Remove this teacher?')) return;
+    const resp = await fetch(`/api/admin/teachers/${tId}/delete`, { method: 'POST' });
+    const d = await resp.json();
+    if (d.success) { showToast(d.message, 'info'); document.getElementById(`row-tch-${tId}`).remove(); }
+}
+
+// User Management
+document.getElementById('createUserForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const u = document.getElementById('newUsername').value.trim();
+    const p = document.getElementById('newUserPassword').value.trim();
+    const r = document.getElementById('newUserRole').value;
+    const n = document.getElementById('newUserName').value.trim();
+    const em = document.getElementById('newUserEmail').value.trim();
+    const resp = await fetch('/api/admin/users/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: u, password: p, role: r, name: n, email: em })
+    });
+    const d = await resp.json();
+    if (d.success) { showToast(d.message, 'success'); setTimeout(() => window.location.reload(), 700); }
+    else showToast(d.message, 'danger');
+});
+
+async function deleteUser(username) {
+    if (!confirm(`Remove user ${username}?`)) return;
+    const resp = await fetch(`/api/admin/users/${username}/delete`, { method: 'POST' });
+    const d = await resp.json();
+    if (d.success) { showToast(d.message, 'info'); document.getElementById(`row-user-${username}`).remove(); }
+    else showToast(d.message, 'danger');
+}
+
+// Camera Config Save
+document.getElementById('cameraConfigForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const idx = parseInt(document.getElementById('cameraIndexInput').value);
+    const conf = parseFloat(document.getElementById('confidenceRange').value);
+    const frames = parseInt(document.getElementById('framesAttendanceInput').value);
+    const resp = await fetch('/api/admin/camera/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ camera_index: idx, confidence_threshold: conf, frames_for_attendance: frames })
+    });
+    const d = await resp.json();
+    if (d.success) showToast(d.message, 'success');
+    else showToast(d.message, 'danger');
+});
+
+// Retrain Classifier
+document.getElementById('triggerTrainingBtn').addEventListener('click', async () => {
+    const btn = document.getElementById('triggerTrainingBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Training In Progress...';
+
+    document.getElementById('idleTrainingMsg').style.display = 'none';
+    document.getElementById('activeTrainingBox').style.display = 'block';
+
+    try {
+        const resp = await fetch('/api/train/start', { method: 'POST' });
+        const data = await resp.json();
+        if (data.success) {
+            showToast('Training initiated in background.', 'info');
+            const poll = setInterval(async () => {
+                const s = await (await fetch('/api/train/status')).json();
+                document.getElementById('trainingProgressBar').style.width = s.progress + '%';
+                document.getElementById('trainingStageText').innerText = s.stage;
+                document.getElementById('trainingEpochText').innerText = `Epoch: ${s.current_epoch}/${s.total_epochs}`;
+                document.getElementById('trainingLossText').innerText = `Loss: ${s.loss ? s.loss.toFixed(4) : '-'}`;
+                document.getElementById('trainingAccText').innerText = `Acc: ${s.accuracy ? (s.accuracy * 100).toFixed(1) + '%' : '-'}`;
+
+                if (!s.is_training) {
+                    clearInterval(poll);
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fa-solid fa-arrows-rotate me-2"></i>Retrain Classifier Model on All Enrolled Students';
+                    showToast('Model training completed successfully!', 'success');
+                }
+            }, 800);
+        } else {
+            showToast(data.message, 'warning');
+            btn.disabled = false;
+        }
+    } catch (e) {
+        showToast('Training error: ' + e.message, 'danger');
+        btn.disabled = false;
+    }
+});
+
+// =============================================================
+// ADVANCED AI MODEL & DATABASE MANAGEMENT JAVASCRIPT
+// =============================================================
+
+// Helper for UI Toasts
+function updateDbStatusUI(isConnected, mode, statusMsg) {
+    const alertBox = document.getElementById('adminDbAlert');
+    const icon = document.getElementById('adminDbIcon');
+    const modeEl = document.getElementById('adminDbMode');
+    const statusEl = document.getElementById('adminDbStatusText');
+
+    if (alertBox && icon && modeEl && statusEl) {
+        if (isConnected) {
+            alertBox.className = 'alert alert-success py-2 small d-flex align-items-center justify-content-between';
+            icon.className = 'fa-solid fa-circle-check text-success me-2';
+        } else {
+            alertBox.className = 'alert alert-warning py-2 small d-flex align-items-center justify-content-between';
+            icon.className = 'fa-solid fa-triangle-exclamation text-warning me-2';
+        }
+        modeEl.textContent = mode;
+        statusEl.textContent = statusMsg;
+    }
+}
+
+// 1. Load Model Overview
+async function loadAiModelOverview() {
+    try {
+        const resp = await fetch('/api/admin/model/overview');
+        const data = await resp.json();
+        if (data.success) {
+            const b = document.getElementById('aiActiveVersionBadge');
+            if (b) b.textContent = data.active_version;
+            const tHigh = document.getElementById('aiThresholdHighText');
+            if (tHigh) tHigh.textContent = '>= ' + data.threshold_high;
+            const tRev = document.getElementById('aiThresholdReviewText');
+            if (tRev) tRev.textContent = data.threshold_review + ' - ' + data.threshold_high;
+            const ids = document.getElementById('aiTotalIdentities');
+            if (ids) ids.textContent = data.total_identities + ' Students';
+            const acc = document.getElementById('aiValAccuracy');
+            if (acc) acc.textContent = (data.val_accuracy * 100).toFixed(1) + '%';
+            const statusBadge = document.getElementById('aiModelStatusBadge');
+            if (statusBadge) statusBadge.textContent = data.status + ' & DEPLOYED';
+            const lastTrained = document.getElementById('aiLastTrainedText');
+            if (lastTrained) lastTrained.textContent = data.created_at;
+            const dbMode = document.getElementById('aiDbModeText');
+            if (dbMode) dbMode.textContent = data.db_mode;
+        }
+    } catch (e) {
+        console.error('Failed to load AI model overview:', e);
+    }
+}
+
+// 2. Run Dataset Audit
+async function runDatasetAudit() {
+    const tbody = document.getElementById('studentSummariesTableBody');
+    if (tbody) tbody.innerHTML = '<tr><td colspan="6" class="text-center py-3 text-muted"><span class="spinner-border spinner-border-sm me-2"></span>Scanning student datasets in people/...</td></tr>';
+
+    try {
+        const resp = await fetch('/api/admin/dataset/audit');
+        const data = await resp.json();
+        if (data.success && data.report) {
+            const r = data.report;
+            document.getElementById('statTotalImages').textContent = r.total_images;
+            document.getElementById('statVerifiedFaces').textContent = r.total_faces_detected;
+            document.getElementById('statBlurryCount').textContent = r.blurry_images;
+            document.getElementById('statDuplicateCount').textContent = r.duplicate_images_found;
+
+            if (r.student_summaries.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="text-center py-3 text-muted">No student folders detected in people/.</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = r.student_summaries.map(s => {
+                let badgeClass = 'bg-secondary';
+                if (s.status === 'Ready') badgeClass = 'bg-success';
+                else if (s.status.includes('Needs')) badgeClass = 'bg-warning text-dark';
+
+                let qualityIssues = [];
+                if (s.has_blurry) qualityIssues.push('<span class="badge bg-warning text-dark me-1">Blurry Found</span>');
+                if (s.has_duplicates) qualityIssues.push('<span class="badge bg-danger me-1">Duplicates</span>');
+                if (s.has_group_photos) qualityIssues.push('<span class="badge bg-info text-dark me-1">Group Photos</span>');
+                if (qualityIssues.length === 0) qualityIssues.push('<span class="badge bg-success">Passed Quality Check</span>');
+
+                return `
+                    <tr>
+                        <td class="fw-bold font-monospace">${s.roll_number}</td>
+                        <td>${s.name}</td>
+                        <td>${s.image_count} photos</td>
+                        <td><span class="text-success fw-bold">${s.valid_faces_count}</span></td>
+                        <td>${qualityIssues.join('')}</td>
+                        <td><span class="badge ${badgeClass}">${s.status}</span></td>
+                    </tr>
+                `;
+            }).join('');
+            showToast('Dataset audit completed successfully.', 'success');
+        }
+    } catch (e) {
+        showToast('Audit failed: ' + e.message, 'danger');
+    }
+}
+
+// 3. Group Photo Splitter
+const procGroupBtn = document.getElementById('processGroupPhotoBtn');
+if (procGroupBtn) {
+    procGroupBtn.addEventListener('click', async () => {
+        const fileInput = document.getElementById('groupPhotoUploadInput');
+        if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
+            showToast('Please select a group photo file first.', 'warning');
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('photo', fileInput.files[0]);
+
+        procGroupBtn.disabled = true;
+        procGroupBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Extracting & Aligning Faces...';
+
+        try {
+            const resp = await fetch('/api/admin/dataset/group-photo', {
+                method: 'POST',
+                body: formData
+            });
+            const d = await resp.json();
+            if (d.success && d.result) {
+                const res = d.result;
+                const container = document.getElementById('groupCropsResultContainer');
+                const grid = document.getElementById('groupCropsGrid');
+                container.style.display = 'block';
+
+                if (res.faces.length === 0) {
+                    grid.innerHTML = '<div class="col-12 text-center text-muted py-3">No faces detected in the uploaded photograph.</div>';
+                    return;
+                }
+
+                // Fetch registered students list for dropdowns
+                const stuResp = await fetch('/api/students');
+                const studentsList = await stuResp.json();
+
+                grid.innerHTML = res.faces.map((f, i) => `
+                    <div class="col-md-6 col-lg-4" id="cropCard_${i}">
+                        <div class="card h-100 border p-2 text-center">
+                            <img src="${f.thumbnail}" class="rounded mx-auto mb-2 border" style="width: 120px; height: 120px; object-fit: cover;">
+                            <div class="small fw-bold mb-1">Face #${f.face_index}</div>
+                            <div class="small text-muted mb-2">
+                                Suggestion: <strong class="text-primary">${f.suggested_name} (${(f.confidence*100).toFixed(0)}%)</strong>
+                            </div>
+                            <div class="mb-2">
+                                <select class="form-select form-select-sm" id="cropStudentSelect_${i}">
+                                    <option value="">-- Assign to Student --</option>
+                                    ${studentsList.map(s => `
+                                        <option value="${s.roll_number}" ${s.roll_number == f.suggested_roll ? 'selected' : ''}>
+                                            ${s.roll_number} - ${s.name}
+                                        </option>
+                                    `).join('')}
+                                </select>
+                            </div>
+                            <button class="btn btn-sm btn-success" onclick="assignFaceCrop(${i}, '${f.thumbnail}')" id="assignBtn_${i}">
+                                <i class="fa-solid fa-check me-1"></i> Confirm & Save
+                            </button>
+                        </div>
+                    </div>
+                `).join('');
+                showToast(`Found ${res.faces.length} individual faces in photo!`, 'success');
+            } else {
+                showToast(d.message || 'Face extraction failed.', 'danger');
+            }
+        } catch (e) {
+            showToast('Error processing group photo: ' + e.message, 'danger');
+        } finally {
+            procGroupBtn.disabled = false;
+            procGroupBtn.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles me-2"></i>Extract & Align All Visible Faces';
+        }
+    });
+}
+
+async function assignFaceCrop(idx, thumbB64) {
+    const sel = document.getElementById(`cropStudentSelect_${idx}`);
+    const roll = sel ? sel.value : null;
+    if (!roll) {
+        showToast('Please select a student from the dropdown first.', 'warning');
+        return;
+    }
+
+    const btn = document.getElementById(`assignBtn_${idx}`);
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Saving...';
+    }
+
+    try {
+        const resp = await fetch('/api/admin/dataset/assign-crop', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ roll_number: roll, crop_b64: thumbB64 })
+        });
+        const d = await resp.json();
+        if (d.success) {
+            showToast(d.message, 'success');
+            if (btn) {
+                btn.className = 'btn btn-sm btn-secondary disabled';
+                btn.innerHTML = '<i class="fa-solid fa-circle-check me-1"></i> Assigned';
+            }
+        } else {
+            showToast(d.message, 'danger');
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fa-solid fa-check me-1"></i> Confirm & Save';
+            }
+        }
+    } catch (e) {
+        showToast('Assignment error: ' + e.message, 'danger');
+        if (btn) btn.disabled = false;
+    }
+}
+
+// 4. Intelligent Training Control & Real-time Progress Monitor
+const startTrainBtn = document.getElementById('startTrainingBtnMain');
+const quickTrainBtn = document.getElementById('aiQuickTrainBtn');
+
+async function launchTrainingJob() {
+    if (startTrainBtn) startTrainBtn.disabled = true;
+    if (quickTrainBtn) quickTrainBtn.disabled = true;
+
+    try {
+        const resp = await fetch('/api/admin/model/train', { method: 'POST' });
+        const data = await resp.json();
+        if (data.success) {
+            showToast('Training pipeline started in background.', 'info');
+            const jobBadge = document.getElementById('trainJobIdBadge');
+            if (jobBadge) jobBadge.textContent = data.job_id;
+
+            // Start polling progress
+            const pollTimer = setInterval(async () => {
+                const sResp = await fetch('/api/admin/model/train/status');
+                const sData = await sResp.json();
+                if (sData.success && sData.status) {
+                    const s = sData.status;
+                    const pBar = document.getElementById('trainProgressBarMain');
+                    if (pBar) pBar.style.width = s.progress + '%';
+                    const pLabel = document.getElementById('trainPercentLabel');
+                    if (pLabel) pLabel.textContent = s.progress + '%';
+                    const sLabel = document.getElementById('trainStageLabel');
+                    if (sLabel) sLabel.textContent = 'Pipeline Stage: ' + s.stage;
+
+                    document.getElementById('trainStatImages').textContent = s.total_images_processed;
+                    document.getElementById('trainStatFaces').textContent = s.total_faces_extracted;
+                    document.getElementById('trainStatEmbeddings').textContent = s.total_embeddings_generated;
+                    if (s.val_accuracy !== null) {
+                        document.getElementById('trainStatAcc').textContent = (s.val_accuracy * 100).toFixed(1) + '%';
+                    }
+
+                    const logBox = document.getElementById('trainLogBox');
+                    if (logBox && s.logs) {
+                        logBox.innerHTML = s.logs.map(l => `<div>${l}</div>`).join('');
+                        logBox.scrollTop = logBox.scrollHeight;
+                    }
+
+                    if (!s.is_training) {
+                        clearInterval(pollTimer);
+                        if (startTrainBtn) startTrainBtn.disabled = false;
+                        if (quickTrainBtn) quickTrainBtn.disabled = false;
+                        if (s.stage.includes('Complete')) {
+                            showToast('Model training completed! New version deployed.', 'success');
+                            loadAiModelOverview();
+                            loadModelVersionHistory();
+                        } else if (s.stage.includes('Failed')) {
+                            showToast('Training encountered an error: ' + (s.error || 'Unknown'), 'danger');
+                        }
+                    }
+                }
+            }, 800);
+        } else {
+            showToast(data.message || 'Failed to start training.', 'danger');
+            if (startTrainBtn) startTrainBtn.disabled = false;
+            if (quickTrainBtn) quickTrainBtn.disabled = false;
+        }
+    } catch (e) {
+        showToast('Training error: ' + e.message, 'danger');
+        if (startTrainBtn) startTrainBtn.disabled = false;
+        if (quickTrainBtn) quickTrainBtn.disabled = false;
+    }
+}
+
+if (startTrainBtn) startTrainBtn.addEventListener('click', launchTrainingJob);
+if (quickTrainBtn) quickTrainBtn.addEventListener('click', () => {
+    const tabTrigger = new bootstrap.Tab(document.getElementById('ai-tab-training'));
+    tabTrigger.show();
+    launchTrainingJob();
+});
+
+// 5. Model Versions History
+async function loadModelVersionHistory() {
+    const tbody = document.getElementById('modelVersionsTableBody');
+    if (!tbody) return;
+
+    try {
+        const resp = await fetch('/api/admin/model/versions');
+        const data = await resp.json();
+        if (data.success && data.versions) {
+            if (data.versions.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="8" class="text-center py-3 text-muted">No model versions registered yet. Run training to create one.</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = data.versions.map(v => `
+                <tr class="${v.status === 'ACTIVE' ? 'table-success' : ''}">
+                    <td class="fw-bold font-monospace">${v.version_id}</td>
+                    <td>${v.created_at}</td>
+                    <td>${v.total_identities}</td>
+                    <td>${v.total_embeddings}</td>
+                    <td><strong class="text-success">${(v.val_accuracy * 100).toFixed(1)}%</strong></td>
+                    <td>${v.threshold_high}</td>
+                    <td>
+                        <span class="badge ${v.status === 'ACTIVE' ? 'bg-success' : 'bg-secondary'}">
+                            ${v.status}
+                        </span>
+                    </td>
+                    <td>
+                        ${v.status === 'ACTIVE' ? `
+                            <span class="badge bg-success-subtle text-success">Deployed & Serving</span>
+                        ` : `
+                            <button class="btn btn-sm btn-outline-primary py-0 px-2" onclick="deployModelVersion('${v.version_id}')">
+                                <i class="fa-solid fa-upload me-1"></i> Deploy
+                            </button>
+                        `}
+                    </td>
+                </tr>
+            `).join('');
+        }
+    } catch (e) {
+        console.error('Failed to load version history:', e);
+    }
+}
+
+async function deployModelVersion(versionId) {
+    if (!confirm(`Deploy model version ${versionId} to active live inference?`)) return;
+    try {
+        const resp = await fetch(`/api/admin/model/versions/${versionId}/deploy`, { method: 'POST' });
+        const d = await resp.json();
+        if (d.success) {
+            showToast(d.message, 'success');
+            loadAiModelOverview();
+            loadModelVersionHistory();
+        } else {
+            showToast(d.message, 'danger');
+        }
+    } catch (e) {
+        showToast('Deployment failed: ' + e.message, 'danger');
+    }
+}
+
+// 6. Live Model Testing
+const runTestBtn = document.getElementById('runTestPhotoBtn');
+if (runTestBtn) {
+    runTestBtn.addEventListener('click', async () => {
+        const fInput = document.getElementById('testPhotoInput');
+        if (!fInput || !fInput.files || fInput.files.length === 0) {
+            showToast('Please select a test photo to evaluate.', 'warning');
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('photo', fInput.files[0]);
+
+        runTestBtn.disabled = true;
+        runTestBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Evaluating Multi-Person Inference...';
+
+        try {
+            const resp = await fetch('/api/admin/model/test-photo', {
+                method: 'POST',
+                body: formData
+            });
+            const d = await resp.json();
+            if (d.success) {
+                const prevBox = document.getElementById('testPhotoPreviewContainer');
+                if (prevBox && d.annotated_image) {
+                    prevBox.innerHTML = `<img src="${d.annotated_image}" class="img-fluid rounded shadow-sm border" style="max-height: 400px; width: auto;">`;
+                }
+
+                const badge = document.getElementById('testFaceCountBadge');
+                if (badge) badge.textContent = `${d.total_faces} Faces Detected`;
+
+                const tbody = document.getElementById('testDetectionsTableBody');
+                if (tbody) {
+                    if (d.detections.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="5" class="text-center py-2 text-muted">No faces detected.</td></tr>';
+                    } else {
+                        tbody.innerHTML = d.detections.map(det => {
+                            let badgeCls = 'bg-danger';
+                            if (det.state === 'HIGH_CONFIDENCE') badgeCls = 'bg-success';
+                            else if (det.state === 'REVIEW_REQUIRED') badgeCls = 'bg-warning text-dark';
+
+                            return `
+                                <tr>
+                                    <td><strong>#${det.face_index}</strong></td>
+                                    <td>
+                                        <div class="fw-bold">${det.name}</div>
+                                        <small class="text-muted font-monospace">${det.roll_number}</small>
+                                    </td>
+                                    <td><strong>${(det.confidence * 100).toFixed(1)}%</strong></td>
+                                    <td><span class="badge ${badgeCls}">${det.state}</span></td>
+                                    <td>${det.quality.blur_score ? det.quality.blur_score.toFixed(1) : '-'}</td>
+                                </tr>
+                            `;
+                        }).join('');
+                    }
+                }
+                showToast(`Inference complete: ${d.total_faces} faces processed.`, 'success');
+            } else {
+                showToast(d.message || 'Inference failed.', 'danger');
+            }
+        } catch (e) {
+            showToast('Test inference error: ' + e.message, 'danger');
+        } finally {
+            runTestBtn.disabled = false;
+            runTestBtn.innerHTML = '<i class="fa-solid fa-bolt me-2"></i>Run Multi-Person Face Inference';
+        }
+    });
+}
+
+// 7. Database Reconnection & Sync Buttons
+const quickReconnBtn = document.getElementById('adminQuickReconnectBtn');
+if (quickReconnBtn) {
+    quickReconnBtn.addEventListener('click', async () => {
+        quickReconnBtn.disabled = true;
+        quickReconnBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>';
+        try {
+            const resp = await fetch('/api/db/reconnect', { method: 'POST' });
+            const d = await resp.json();
+            if (d.success) {
+                updateDbStatusUI(true, 'MongoDB', d.status.status_message);
+                showToast(d.message, 'success');
+            } else {
+                updateDbStatusUI(false, 'SQLite', d.status.status_message);
+                showToast(d.message, 'warning');
+            }
+        } catch (e) {
+            showToast('Reconnection error: ' + e.message, 'danger');
+        } finally {
+            quickReconnBtn.disabled = false;
+            quickReconnBtn.innerHTML = '<i class="fa-solid fa-rotate me-1"></i> Reconnect';
+        }
+    });
+}
+
+// Hook tab activations
+const tabAimodel = document.getElementById('tab-aimodel');
+if (tabAimodel) {
+    tabAimodel.addEventListener('shown.bs.tab', () => {
+        loadAiModelOverview();
+        loadModelVersionHistory();
+    });
+}
+const btnQuickAudit = document.getElementById('aiQuickAuditBtn');
+if (btnQuickAudit) {
+    btnQuickAudit.addEventListener('click', () => {
+        const tabTrigger = new bootstrap.Tab(document.getElementById('ai-tab-dataset'));
+        tabTrigger.show();
+        runDatasetAudit();
+    });
+}
+const btnRunAudit = document.getElementById('runAuditBtn');
+if (btnRunAudit) btnRunAudit.addEventListener('click', runDatasetAudit);
+const btnRefVers = document.getElementById('refreshVersionsBtn');
+if (btnRefVers) btnRefVers.addEventListener('click', loadModelVersionHistory);
+
+// Initial bootstrap on page load
+document.addEventListener('DOMContentLoaded', () => {
+    loadAiModelOverview();
+    loadModelVersionHistory();
+});
+
+
+// Admin DB Test Ping
+document.getElementById('adminTestMongoBtn').addEventListener('click', async () => {
+    const uri = document.getElementById('adminMongoUri').value.trim();
+    const db = document.getElementById('adminMongoDb').value.trim();
+    const btn = document.getElementById('adminTestMongoBtn');
+    btn.disabled = true;
+    try {
+        const resp = await fetch('/api/db/test_mongo', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ mongo_uri: uri, mongo_db: db })
+        });
+        const d = await resp.json();
+        if (d.success) {
+            updateDbStatusUI(true, 'MongoDB', d.status ? d.status.status_message : 'Connected to MongoDB');
+            showToast(d.message, 'success');
+        } else {
+            updateDbStatusUI(false, 'SQLite', d.status ? d.status.status_message : 'MongoDB Offline');
+            showToast(d.message, 'warning');
+        }
+    } finally {
+        btn.disabled = false;
+    }
+});
+
+// Admin CSV Sync
+document.getElementById('adminSyncCsvBtn').addEventListener('click', async () => {
+    const resp = await fetch('/api/db/sync_csv', { method: 'POST' });
+    const d = await resp.json();
+    if (d.success) showToast(d.message, 'success');
+});
+</script>
+{% endblock %}

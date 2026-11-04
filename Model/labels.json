@@ -1,0 +1,23 @@
+{
+    "classes": [
+        "2510001_ABHINAV_CHANDRA_PRAJAPATI",
+        "2510011_AMIT_KUMAR"
+    ],
+    "class_to_idx": {
+        "2510001_ABHINAV_CHANDRA_PRAJAPATI": 0,
+        "2510011_AMIT_KUMAR": 1
+    },
+    "idx_to_label": {
+        "0": "ABHINAV_CHANDRA_PRAJAPATI (2510001)",
+        "1": "AMIT_KUMAR (2510011)"
+    },
+    "idx_to_roll": {
+        "0": "2510001",
+        "1": "2510011"
+    },
+    "idx_to_name": {
+        "0": "ABHINAV_CHANDRA_PRAJAPATI",
+        "1": "AMIT_KUMAR"
+    },
+    "n_classes": 2
+}

@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+
+{% block title %}System Settings - Smart Attendance System{% endblock %}
+{% block page_title %}Recognition Parameters & System Settings{% endblock %}
+
+{% block content %}
+<div class="row g-4">
+    <div class="col-lg-7">
+        <div class="card-custom">
+            <div class="card-header">
+                <span><i class="fa-solid fa-sliders me-2 text-primary"></i>Recognition Hyperparameters</span>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('settings_page') }}">
+                    <!-- Confidence Threshold -->
+                    <div class="mb-4">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <label class="form-label fw-semibold mb-0">Face Recognition Confidence Threshold</label>
+                            <span class="badge bg-primary fs-6" id="thresholdDisplay">{{ (config.confidence_threshold * 100)|int }}%</span>
+                        </div>
+                        <input type="range" class="form-range" name="confidence_threshold" id="confidenceRange" min="0.50" max="0.99" step="0.01" value="{{ config.confidence_threshold }}">
+                        <div class="d-flex justify-content-between small text-muted">
+                            <span>50% (Permissive)</span>
+                            <span>85% (Recommended)</span>
+                            <span>99% (Strict)</span>
+                        </div>
+                        <small class="text-muted d-block mt-1">Predictions below this probability will be marked as "Unknown Student".</small>
+                    </div>
+
+                    <!-- Sustained Frames for Attendance -->
+                    <div class="mb-4">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <label class="form-label fw-semibold mb-0">Consecutive Frames Required to Mark Attendance</label>
+                            <span class="badge bg-secondary fs-6" id="framesDisplay">{{ config.frames_for_attendance }} frames</span>
+                        </div>
+                        <input type="range" class="form-range" name="frames_for_attendance" id="framesRange" min="3" max="30" step="1" value="{{ config.frames_for_attendance }}">
+                        <div class="d-flex justify-content-between small text-muted">
+                            <span>3 frames (Fast)</span>
+                            <span>10 frames (Balanced)</span>
+                            <span>30 frames (Robust)</span>
+                        </div>
+                        <small class="text-muted d-block mt-1">Prevents accidental or momentary false detections from recording attendance.</small>
+                    </div>
+
+                    <!-- Camera Index -->
+                    <div class="mb-4">
+                        <label class="form-label fw-semibold">Local VideoCapture Camera Device Index</label>
+                        <select class="form-select" name="camera_index">
+                            <option value="0" {% if config.camera_index == 0 %}selected{% endif %}>Device 0 (Default Integrated Webcam)</option>
+                            <option value="1" {% if config.camera_index == 1 %}selected{% endif %}>Device 1 (External USB Camera)</option>
+                            <option value="2" {% if config.camera_index == 2 %}selected{% endif %}>Device 2 (Secondary USB Camera)</option>
+                        </select>
+                        <small class="text-muted">Applies to server-side camera capture workflows.</small>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary-gradient px-4 py-2 fw-semibold">
+                        <i class="fa-solid fa-floppy-disk me-2"></i>Save Configuration
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-5">
+        <div class="card-custom">
+            <div class="card-header">
+                <span><i class="fa-solid fa-user-shield me-2 text-success"></i>Biometric Ethics & Consent</span>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-light border small mb-3">
+                    <h6 class="fw-bold mb-1"><i class="fa-solid fa-lock text-success me-1"></i>Localhost Privacy Safe</h6>
+                    All facial embeddings and images are processed strictly on this local machine. No biometric data is ever transmitted to external cloud APIs or 3rd-party servers.
+                </div>
+
+                <div class="alert alert-light border small mb-3">
+                    <h6 class="fw-bold mb-1"><i class="fa-solid fa-trash-can text-danger me-1"></i>Right to Erasure</h6>
+                    Administrators can delete any enrolled student's stored photographs, landmark vectors, and attendance records instantly via the Enrollment dashboard.
+                </div>
+
+                <div class="alert alert-light border small mb-0">
+                    <h6 class="fw-bold mb-1"><i class="fa-solid fa-scale-balanced text-primary me-1"></i>Probabilistic Model Notice</h6>
+                    Computer vision and deep learning classifiers operate on mathematical probability distributions. Manual attendance verification is always accessible to correct any misclassifications.
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+const confidenceRange = document.getElementById('confidenceRange');
+const thresholdDisplay = document.getElementById('thresholdDisplay');
+confidenceRange.addEventListener('input', (e) => {
+    thresholdDisplay.innerText = Math.round(e.target.value * 100) + '%';
+});
+
+const framesRange = document.getElementById('framesRange');
+const framesDisplay = document.getElementById('framesDisplay');
+framesRange.addEventListener('input', (e) => {
+    framesDisplay.innerText = e.target.value + ' frames';
+});
+</script>
+{% endblock %}

@@ -1,0 +1,13 @@
+{
+  "rank1_accuracy": 84.62,
+  "detection_precision": 98.4,
+  "detection_recall": 97.2,
+  "far_percentage": 0.0,
+  "frr_percentage": 71.43,
+  "calibrated_threshold_high": 0.71,
+  "calibrated_threshold_review": 0.57,
+  "total_registered_identities": 2,
+  "total_face_embeddings": 52,
+  "avg_inference_latency_ms": 18.5,
+  "training_duration_sec": 12.66
+}

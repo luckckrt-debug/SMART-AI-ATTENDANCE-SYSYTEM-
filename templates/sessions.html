@@ -1,0 +1,186 @@
+{% extends "base.html" %}
+
+{% block title %}Classroom Session Management - Smart Classroom AI{% endblock %}
+{% block page_title %}<i class="fa-solid fa-layer-group text-cyan me-2"></i>Classroom Session Management{% endblock %}
+
+{% block content %}
+<div class="row g-4 mb-4">
+    <!-- Active Session Card -->
+    <div class="col-lg-5">
+        <div class="card-custom h-100">
+            <div class="card-header">
+                <span><i class="fa-solid fa-record-vinyl text-danger me-2"></i>Currently Active Session</span>
+                {% if active_session %}
+                <span class="badge bg-success">LIVE NOW</span>
+                {% else %}
+                <span class="badge bg-secondary">NO ACTIVE SESSION</span>
+                {% endif %}
+            </div>
+            <div class="card-body">
+                {% if active_session %}
+                <div class="mb-3">
+                    <span class="session-badge d-inline-block mb-2">{{ active_session.session_id }}</span>
+                    <h4 class="text-white mb-1">{{ active_session.subject }}</h4>
+                    <p class="text-cyan mb-2">{{ active_session.section }} &bull; {{ active_session.department }}</p>
+                    <div class="small text-secondary mb-3">
+                        <div><i class="fa-solid fa-user-tie text-cyan me-2"></i>Faculty: <strong>{{ active_session.faculty_name }}</strong></div>
+                        <div><i class="fa-solid fa-calendar me-2"></i>Academic Year: {{ active_session.academic_year }} &bull; Class: {{ active_session.class_name }}</div>
+                        <div><i class="fa-regular fa-clock me-2"></i>Started at: {{ active_session.session_start_time }}</div>
+                    </div>
+                </div>
+
+                <div class="d-flex gap-2">
+                    <a href="{{ url_for('classroom_page') }}" class="btn btn-cyan btn-sm flex-grow-1">
+                        <i class="fa-solid fa-video me-1"></i>Open Classroom Scanner
+                    </a>
+                    <a href="{{ url_for('export_session_csv_route', session_id=active_session.session_id) }}" class="btn btn-outline-cyan btn-sm">
+                        <i class="fa-solid fa-file-csv me-1"></i>Export CSV
+                    </a>
+                </div>
+                {% else %}
+                <div class="text-center py-4 text-secondary">
+                    <p>No active classroom session. Start a new session using the form below.</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Start New Session Form -->
+    <div class="col-lg-7">
+        <div class="card-custom h-100">
+            <div class="card-header">
+                <span><i class="fa-solid fa-plus-circle text-cyan me-2"></i>Initiate New Classroom Session</span>
+            </div>
+            <div class="card-body">
+                <form id="newSessionForm">
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Academic Year</label>
+                            <input type="text" class="form-control" name="academic_year" value="2026-2027" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Department</label>
+                            <select class="form-select" name="department">
+                                <option value="Computer Science & Engineering" selected>Computer Science & Engineering</option>
+                                <option value="Information Technology">Information Technology</option>
+                                <option value="Electronics & Communication">Electronics & Communication</option>
+                                <option value="Electrical Engineering">Electrical Engineering</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-4">
+                            <label class="form-label">Class</label>
+                            <input type="text" class="form-control" name="class_name" value="B.Tech Year 3" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Section</label>
+                            <select class="form-select" name="section">
+                                <option value="Section A" selected>Section A</option>
+                                <option value="Section B">Section B</option>
+                                <option value="Section C">Section C</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Subject</label>
+                            <input type="text" class="form-control" name="subject" value="Machine Learning & AI" required>
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="form-label">Faculty Name</label>
+                        <input type="text" class="form-control" name="faculty_name" value="Prof. Sharma" required>
+                    </div>
+
+                    <button type="submit" class="btn btn-cyan w-100 py-2">
+                        <i class="fa-solid fa-play me-2"></i>Create & Activate Session
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- All Classroom Sessions History Table -->
+<div class="card-custom">
+    <div class="card-header">
+        <span><i class="fa-solid fa-history text-cyan me-2"></i>Classroom Sessions History</span>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-custom table-hover align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th>Session ID</th>
+                        <th>Subject & Section</th>
+                        <th>Department</th>
+                        <th>Faculty</th>
+                        <th>Start Time</th>
+                        <th>End Time</th>
+                        <th>Status</th>
+                        <th class="text-end">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% if sessions %}
+                        {% for s in sessions %}
+                        <tr>
+                            <td><span class="session-badge">{{ s.session_id }}</span></td>
+                            <td><strong>{{ s.subject }}</strong> <span class="text-secondary">({{ s.section }})</span></td>
+                            <td><small class="text-secondary">{{ s.department }}</small></td>
+                            <td>{{ s.faculty_name }}</td>
+                            <td><small class="text-secondary">{{ s.session_start_time }}</small></td>
+                            <td><small class="text-secondary">{{ s.session_end_time or 'In Progress' }}</small></td>
+                            <td>
+                                <span class="badge {% if s.status == 'ACTIVE' %}bg-success{% else %}bg-secondary{% endif %}">
+                                    {{ s.status }}
+                                </span>
+                            </td>
+                            <td class="text-end">
+                                <a href="{{ url_for('export_session_csv_route', session_id=s.session_id) }}" class="btn btn-sm btn-outline-cyan">
+                                    <i class="fa-solid fa-download me-1"></i>CSV
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    {% else %}
+                        <tr>
+                            <td colspan="8" class="text-center py-4 text-secondary">No classroom sessions created yet.</td>
+                        </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+document.getElementById('newSessionForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const formData = new FormData(e.target);
+    const payload = Object.fromEntries(formData.entries());
+
+    try {
+        const resp = await fetch('/api/sessions/create', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        const data = await resp.json();
+        if (data.success) {
+            showToast('New session created: ' + data.session_id, 'success');
+            playSuccessChime();
+            setTimeout(() => window.location.href = '/classroom', 1000);
+        } else {
+            showToast(data.message, 'danger');
+        }
+    } catch (e) {
+        showToast('Error: ' + e.message, 'danger');
+    }
+});
+</script>
+{% endblock %}

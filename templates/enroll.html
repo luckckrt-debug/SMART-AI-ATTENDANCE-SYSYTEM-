@@ -1,0 +1,418 @@
+{% extends "base.html" %}
+
+{% block title %}Student Enrollment - Smart Attendance System{% endblock %}
+{% block page_title %}Student Registration & Biometric Enrollment{% endblock %}
+
+{% block content %}
+<div class="row g-4">
+    <!-- Enrollment Form & Camera / Upload Column -->
+    <div class="col-lg-7">
+        <div class="card-custom">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="fa-solid fa-id-card-clip me-2 text-primary"></i>Biometric Facial Image Intake</span>
+                <span class="badge bg-primary" id="captureCounter">0 Images Ready</span>
+            </div>
+            <div class="card-body">
+                <!-- Tabs: Live Webcam vs Multiple Photo Upload -->
+                <ul class="nav nav-pills mb-3" id="enrollMethodTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="webcam-tab" data-bs-toggle="pill" data-bs-target="#webcam-pane" type="button" role="tab">
+                            <i class="fa-solid fa-camera me-1"></i> Live Webcam Capture
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="upload-tab" data-bs-toggle="pill" data-bs-target="#upload-pane" type="button" role="tab">
+                            <i class="fa-solid fa-images me-1"></i> Upload Multiple Photos
+                        </button>
+                    </li>
+                </ul>
+
+                <div class="tab-content" id="enrollMethodContent">
+                    <!-- 1. Live Webcam Pane -->
+                    <div class="tab-pane fade show active" id="webcam-pane" role="tabpanel">
+                        <div class="camera-box mb-3" id="cameraBox">
+                            <video id="webcam" autoplay playsinline muted></video>
+                            <canvas id="captureCanvas" style="display: none;"></canvas>
+                            <div class="camera-overlay" id="camStatus">
+                                <span class="pulse-dot"></span> Camera Ready
+                            </div>
+                        </div>
+
+                        <!-- Camera Controls -->
+                        <div class="d-flex flex-wrap gap-2 mb-3 justify-content-between">
+                            <div class="d-flex gap-2">
+                                <button type="button" class="btn btn-outline-primary" id="startCamBtn">
+                                    <i class="fa-solid fa-video me-1"></i> Start Camera
+                                </button>
+                                <button type="button" class="btn btn-outline-secondary" id="stopCamBtn" disabled>
+                                    <i class="fa-solid fa-video-slash me-1"></i> Stop Camera
+                                </button>
+                            </div>
+
+                            <button type="button" class="btn btn-primary" id="captureBtn" disabled>
+                                <i class="fa-solid fa-camera-retro me-1"></i> Capture 30 Images
+                            </button>
+                        </div>
+
+                        <!-- Progress Bar during capture -->
+                        <div class="progress mb-3" style="height: 10px; display: none;" id="captureProgressContainer">
+                            <div class="progress-bar progress-bar-striped progress-bar-animated bg-primary" id="captureProgressBar" style="width: 0%"></div>
+                        </div>
+                    </div>
+
+                    <!-- 2. Multiple Photo Upload Pane -->
+                    <div class="tab-pane fade" id="upload-pane" role="tabpanel">
+                        <div class="border rounded p-4 text-center mb-3 bg-light" style="border-style: dashed !important; border-width: 2px !important;">
+                            <i class="fa-solid fa-cloud-arrow-up text-primary fs-1 mb-2"></i>
+                            <h6 class="fw-bold text-dark mb-1">Select Multiple Facial Photographs</h6>
+                            <p class="text-muted small mb-3">Upload clear facial images (JPG, PNG). The system will automatically detect, crop, and normalize the facial bounding box for AI training.</p>
+                            <input type="file" id="fileUploadInput" multiple accept="image/jpeg,image/png,image/jpg" class="d-none">
+                            <button type="button" class="btn btn-outline-primary" onclick="document.getElementById('fileUploadInput').click()">
+                                <i class="fa-solid fa-folder-open me-1"></i> Browse Image Files...
+                            </button>
+                            <div class="mt-2 text-muted small" id="uploadFileCountText">No files chosen</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Snapshot Thumbnails Reel -->
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                        <label class="form-label small text-muted fw-semibold mb-0">Biometric Image Samples Preview:</label>
+                        <button type="button" class="btn btn-sm btn-link text-danger p-0 text-decoration-none" id="clearImagesBtn" style="display: none;">
+                            <i class="fa-solid fa-trash-can me-1"></i>Clear all
+                        </button>
+                    </div>
+                    <div id="snapshotThumbnails" class="d-flex gap-2 overflow-x-auto py-2" style="min-height: 80px; border: 1px dashed #cbd5e1; border-radius: 8px; padding: 6px;">
+                        <span class="text-muted small m-auto" id="noThumbsText">No frames captured or uploaded yet.</span>
+                    </div>
+                </div>
+
+                <!-- Form Inputs -->
+                <form id="enrollForm">
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Student Full Name <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="studentName" placeholder="e.g. John Doe" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Roll Number <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="rollNumber" placeholder="e.g. 101" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Department</label>
+                            <select class="form-select" id="studentDept">
+                                <option value="Computer Science & Engineering">Computer Science & Engineering</option>
+                                <option value="Information Technology">Information Technology</option>
+                                <option value="Artificial Intelligence & Data Science">Artificial Intelligence & Data Science</option>
+                                <option value="Electronics & Communication">Electronics & Communication</option>
+                                <option value="Mechanical Engineering">Mechanical Engineering</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Class Section</label>
+                            <select class="form-select" id="studentSection">
+                                <option value="Section A">Section A</option>
+                                <option value="Section B">Section B</option>
+                                <option value="Section C">Section C</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-check mb-4">
+                        <input class="form-check-input" type="checkbox" id="consentCheck" required>
+                        <label class="form-check-label small text-muted" for="consentCheck">
+                            <i class="fa-solid fa-shield-halved text-success me-1"></i>
+                            <strong>Informed Biometric Consent:</strong> I confirm that the student has provided voluntary informed consent for facial feature collection solely for classroom attendance tracking. Data can be purged or corrected at any time.
+                        </label>
+                    </div>
+
+                    <button type="submit" class="btn btn-success w-100 py-2 fw-semibold" id="saveStudentBtn" disabled>
+                        <i class="fa-solid fa-floppy-disk me-2"></i>Save & Enroll Student
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Enrolled Students Table Column -->
+    <div class="col-lg-5">
+        <div class="card-custom">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="fa-solid fa-users me-2 text-primary"></i>Enrolled Students ({{ students|length }})</span>
+                <a href="{{ url_for('students_page') }}" class="btn btn-sm btn-outline-primary">Directory View</a>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive" style="max-height: 650px; overflow-y: auto;">
+                    <table class="table table-custom table-hover align-middle mb-0">
+                        <thead class="table-light sticky-top">
+                            <tr>
+                                <th>Photo</th>
+                                <th>Roll</th>
+                                <th>Name</th>
+                                <th class="text-end">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="studentListBody">
+                            {% if students %}
+                                {% for s in students %}
+                                <tr id="row-{{ s.roll_number }}">
+                                    <td>
+                                        <img src="{{ s.profile_photo or '/static/profiles/' ~ s.roll_number ~ '.jpg' }}" class="rounded-circle border" width="34" height="34" style="object-fit: cover;" onerror="this.src='https://ui-avatars.com/api/?name={{ s.name | urlencode }}&background=0a192f&color=64ffda'">
+                                    </td>
+                                    <td class="fw-bold">{{ s.roll_number }}</td>
+                                    <td>
+                                        <div class="fw-semibold text-dark">{{ s.name }}</div>
+                                        <small class="text-muted">{{ s.section or 'Section A' }}</small>
+                                    </td>
+                                    <td class="text-end">
+                                        <button class="btn btn-sm btn-outline-danger delete-btn" data-roll="{{ s.roll_number }}" data-name="{{ s.name }}" title="Delete biometric records">
+                                            <i class="fa-regular fa-trash-can"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            {% else %}
+                                <tr id="noStudentsRow">
+                                    <td colspan="4" class="text-center py-4 text-muted">No students enrolled yet.</td>
+                                </tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+let stream = null;
+const video = document.getElementById('webcam');
+const canvas = document.getElementById('captureCanvas');
+const startCamBtn = document.getElementById('startCamBtn');
+const stopCamBtn = document.getElementById('stopCamBtn');
+const captureBtn = document.getElementById('captureBtn');
+const saveStudentBtn = document.getElementById('saveStudentBtn');
+const captureCounter = document.getElementById('captureCounter');
+const captureProgressContainer = document.getElementById('captureProgressContainer');
+const captureProgressBar = document.getElementById('captureProgressBar');
+const snapshotThumbnails = document.getElementById('snapshotThumbnails');
+const noThumbsText = document.getElementById('noThumbsText');
+const clearImagesBtn = document.getElementById('clearImagesBtn');
+const camStatus = document.getElementById('camStatus');
+const consentCheck = document.getElementById('consentCheck');
+const enrollForm = document.getElementById('enrollForm');
+const fileUploadInput = document.getElementById('fileUploadInput');
+const uploadFileCountText = document.getElementById('uploadFileCountText');
+
+let capturedImages = [];
+const TARGET_FRAMES = 30;
+
+function updateThumbnailsUI() {
+    snapshotThumbnails.innerHTML = '';
+    if (capturedImages.length === 0) {
+        snapshotThumbnails.appendChild(noThumbsText);
+        noThumbsText.style.display = 'block';
+        clearImagesBtn.style.display = 'none';
+        captureCounter.innerText = '0 Images Ready';
+    } else {
+        clearImagesBtn.style.display = 'inline-block';
+        captureCounter.innerText = `${capturedImages.length} Images Ready`;
+        const previewLimit = Math.min(capturedImages.length, 12);
+        for (let i = 0; i < previewLimit; i++) {
+            const img = document.createElement('img');
+            img.src = capturedImages[i];
+            img.style.height = '60px';
+            img.style.width = '60px';
+            img.style.borderRadius = '4px';
+            img.style.objectFit = 'cover';
+            img.className = 'border';
+            snapshotThumbnails.appendChild(img);
+        }
+        if (capturedImages.length > previewLimit) {
+            const moreBadge = document.createElement('div');
+            moreBadge.className = 'd-flex align-items-center justify-content-center bg-light border rounded px-2 small text-muted';
+            moreBadge.innerText = `+${capturedImages.length - previewLimit} more`;
+            snapshotThumbnails.appendChild(moreBadge);
+        }
+    }
+    checkReadyToSave();
+}
+
+clearImagesBtn.addEventListener('click', () => {
+    capturedImages = [];
+    if (fileUploadInput) fileUploadInput.value = '';
+    if (uploadFileCountText) uploadFileCountText.innerText = 'No files chosen';
+    updateThumbnailsUI();
+});
+
+// Start Camera
+startCamBtn.addEventListener('click', async () => {
+    try {
+        stream = await navigator.mediaDevices.getUserMedia({
+            video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'user' }
+        });
+        video.srcObject = stream;
+        startCamBtn.disabled = true;
+        stopCamBtn.disabled = false;
+        captureBtn.disabled = false;
+        camStatus.innerHTML = '<span class="pulse-dot"></span> Camera Active';
+    } catch (err) {
+        showToast('Camera permission denied or camera device unavailable: ' + err.message, 'danger');
+    }
+});
+
+// Stop Camera
+function stopCamera() {
+    if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+        stream = null;
+    }
+    video.srcObject = null;
+    startCamBtn.disabled = false;
+    stopCamBtn.disabled = true;
+    captureBtn.disabled = true;
+    camStatus.innerHTML = '<span class="pulse-dot" style="background:#ef4444;"></span> Camera Stopped';
+}
+stopCamBtn.addEventListener('click', stopCamera);
+
+// Capture 30 Frames in intervals
+captureBtn.addEventListener('click', async () => {
+    capturedImages = [];
+    captureProgressContainer.style.display = 'block';
+    captureBtn.disabled = true;
+
+    canvas.width = video.videoWidth || 640;
+    canvas.height = video.videoHeight || 480;
+    const ctx = canvas.getContext('2d');
+
+    let count = 0;
+    const interval = setInterval(() => {
+        if (count >= TARGET_FRAMES) {
+            clearInterval(interval);
+            captureBtn.disabled = false;
+            showToast(`Successfully captured ${TARGET_FRAMES} frames!`, 'success');
+            updateThumbnailsUI();
+            return;
+        }
+
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+        capturedImages.push(dataUrl);
+
+        count++;
+        const pct = Math.round((count / TARGET_FRAMES) * 100);
+        captureProgressBar.style.width = pct + '%';
+        captureCounter.innerText = `${count} / ${TARGET_FRAMES} Captured`;
+
+        if (count % 3 === 0) {
+            updateThumbnailsUI();
+        }
+    }, 120);
+});
+
+// Multiple Photo Upload Handling
+fileUploadInput.addEventListener('change', async (e) => {
+    const files = Array.from(e.target.files);
+    if (!files || files.length === 0) return;
+
+    uploadFileCountText.innerText = `${files.length} image(s) selected`;
+    showToast(`Loading ${files.length} image file(s)...`, 'info');
+
+    for (const file of files) {
+        const dataUrl = await new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onload = (event) => resolve(event.target.result);
+            reader.readAsDataURL(file);
+        });
+        capturedImages.push(dataUrl);
+    }
+
+    updateThumbnailsUI();
+    showToast(`Loaded ${capturedImages.length} images total for enrollment.`, 'success');
+});
+
+function checkReadyToSave() {
+    saveStudentBtn.disabled = !(capturedImages.length >= 1 && consentCheck.checked);
+}
+
+consentCheck.addEventListener('change', checkReadyToSave);
+
+// Form Submit
+enrollForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const name = document.getElementById('studentName').value.trim();
+    const roll = document.getElementById('rollNumber').value.trim();
+    const dept = document.getElementById('studentDept').value;
+    const sec = document.getElementById('studentSection').value;
+
+    if (!name || !roll) {
+        showToast('Please enter student name and roll number.', 'warning');
+        return;
+    }
+
+    if (capturedImages.length === 0) {
+        showToast('Please capture or upload face images first.', 'warning');
+        return;
+    }
+
+    saveStudentBtn.disabled = true;
+    saveStudentBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Saving & Registering...';
+
+    try {
+        const response = await fetch('/api/enroll', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                name: name,
+                roll_number: roll,
+                department: dept,
+                section: sec,
+                images: capturedImages
+            })
+        });
+
+        const res = await response.json();
+        if (res.success) {
+            showToast(res.message, 'success');
+            setTimeout(() => window.location.reload(), 1200);
+        } else {
+            showToast(res.message || 'Enrollment failed', 'danger');
+            saveStudentBtn.disabled = false;
+            saveStudentBtn.innerHTML = '<i class="fa-solid fa-floppy-disk me-2"></i>Save & Enroll Student';
+        }
+    } catch (err) {
+        showToast('Enrollment request failed: ' + err.message, 'danger');
+        saveStudentBtn.disabled = false;
+        saveStudentBtn.innerHTML = '<i class="fa-solid fa-floppy-disk me-2"></i>Save & Enroll Student';
+    }
+});
+
+// Delete Student
+document.querySelectorAll('.delete-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+        const roll = btn.dataset.roll;
+        const name = btn.dataset.name;
+        if (!confirm(`Are you sure you want to permanently delete student ${name} (Roll: ${roll}) and all biometric data?`)) {
+            return;
+        }
+
+        try {
+            const resp = await fetch(`/api/student/${roll}`, { method: 'DELETE' });
+            const data = await resp.json();
+            if (data.success) {
+                showToast(data.message, 'success');
+                const row = document.getElementById(`row-${roll}`);
+                if (row) row.remove();
+            } else {
+                showToast(data.message, 'danger');
+            }
+        } catch (e) {
+            showToast('Delete request error: ' + e.message, 'danger');
+        }
+    });
+});
+</script>
+{% endblock %}

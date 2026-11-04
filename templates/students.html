@@ -1,0 +1,207 @@
+{% extends "base.html" %}
+
+{% block title %}Student Profile Management - Smart Classroom AI{% endblock %}
+{% block page_title %}<i class="fa-solid fa-id-card text-cyan me-2"></i>Student Profiles & Authorized Biometric Registry{% endblock %}
+
+{% block content %}
+<div class="card-custom">
+    <div class="card-header flex-wrap gap-2">
+        <span><i class="fa-solid fa-user-graduate text-cyan me-2"></i>Authorized Enrolled Students Directory ({{ students|length }})</span>
+        <div class="d-flex gap-2">
+            <input type="text" class="form-control form-control-sm" id="studentSearch" placeholder="Search by name, roll, or section..." style="max-width: 250px;">
+            <a href="{{ url_for('enroll_page') }}" class="btn btn-cyan btn-sm">
+                <i class="fa-solid fa-user-plus me-1"></i>Enroll New Student
+            </a>
+        </div>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-custom table-hover align-middle mb-0" id="studentsTable">
+                <thead>
+                    <tr>
+                        <th>Authorized Photo</th>
+                        <th>Roll Number</th>
+                        <th>Student Name</th>
+                        <th>Department</th>
+                        <th>Section</th>
+                        <th>Enrollment Status</th>
+                        <th>Consent Status</th>
+                        <th class="text-end">Management Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% if students %}
+                        {% for s in students %}
+                        <tr class="student-row" id="row-{{ s.roll_number }}">
+                            <td>
+                                <img src="{{ s.profile_photo or '/static/img/avatar.png' }}" class="student-avatar" style="width: 46px; height: 46px;" alt="{{ s.name }}" onerror="this.src='/static/img/avatar.png'">
+                            </td>
+                            <td class="fw-bold font-monospace text-cyan">{{ s.roll_number }}</td>
+                            <td class="fw-semibold text-white">{{ s.name }}</td>
+                            <td><small class="text-secondary">{{ s.department }}</small></td>
+                            <td><span class="badge bg-dark border border-secondary text-secondary">{{ s.section }}</span></td>
+                            <td>
+                                <span class="badge {% if s.enrollment_status == 'Active' %}bg-success{% else %}bg-warning text-dark{% endif %}" id="status-{{ s.roll_number }}">
+                                    {{ s.enrollment_status }}
+                                </span>
+                            </td>
+                            <td>
+                                {% if s.consent_given %}
+                                <span class="badge bg-success-subtle text-success border border-success-subtle">
+                                    <i class="fa-solid fa-check me-1"></i>Verified Consent
+                                </span>
+                                {% else %}
+                                <span class="badge bg-danger-subtle text-danger border border-danger-subtle">
+                                    <i class="fa-solid fa-xmark me-1"></i>Consent Pending
+                                </span>
+                                {% endif %}
+                            </td>
+                            <td class="text-end">
+                                <div class="btn-group btn-group-sm">
+                                    <button class="btn btn-outline-cyan edit-profile-btn" data-roll="{{ s.roll_number }}" data-name="{{ s.name }}" data-dept="{{ s.department }}" data-sec="{{ s.section }}" data-status="{{ s.enrollment_status }}" title="Edit Profile">
+                                        <i class="fa-solid fa-pen-to-square"></i>
+                                    </button>
+                                    <button class="btn btn-outline-danger delete-student-btn" data-roll="{{ s.roll_number }}" data-name="{{ s.name }}" title="Purge Biometrics & Records">
+                                        <i class="fa-regular fa-trash-can"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    {% else %}
+                        <tr>
+                            <td colspan="8" class="text-center py-4 text-secondary">No student profiles registered in system.</td>
+                        </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Student Profile Modal -->
+<div class="modal fade" id="editProfileModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fa-solid fa-user-pen text-cyan me-2"></i>Update Student Profile</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="editProfileForm">
+                <div class="modal-body">
+                    <input type="hidden" name="roll_number" id="editRoll">
+                    <div class="mb-3">
+                        <label class="form-label">Student Name</label>
+                        <input type="text" class="form-control" name="name" id="editName" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Department</label>
+                        <select class="form-select" name="department" id="editDept">
+                            <option value="Computer Science & Engineering">Computer Science & Engineering</option>
+                            <option value="Information Technology">Information Technology</option>
+                            <option value="Electronics & Communication">Electronics & Communication</option>
+                            <option value="Electrical Engineering">Electrical Engineering</option>
+                        </select>
+                    </div>
+                    <div class="row g-2 mb-3">
+                        <div class="col-6">
+                            <label class="form-label">Section</label>
+                            <select class="form-select" name="section" id="editSec">
+                                <option value="Section A">Section A</option>
+                                <option value="Section B">Section B</option>
+                                <option value="Section C">Section C</option>
+                            </select>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label">Enrollment Status</label>
+                            <select class="form-select" name="enrollment_status" id="editStatus">
+                                <option value="Active">Active</option>
+                                <option value="Suspended">Suspended</option>
+                                <option value="Pending Consent">Pending Consent</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-cyan">Save Profile Updates</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+// Filter table rows
+document.getElementById('studentSearch').addEventListener('input', (e) => {
+    const q = e.target.value.toLowerCase();
+    document.querySelectorAll('.student-row').forEach(row => {
+        row.style.display = row.innerText.toLowerCase().includes(q) ? '' : 'none';
+    });
+});
+
+// Edit Profile Modal
+const editModal = new bootstrap.Modal(document.getElementById('editProfileModal'));
+document.querySelectorAll('.edit-profile-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        document.getElementById('editRoll').value = btn.dataset.roll;
+        document.getElementById('editName').value = btn.dataset.name;
+        document.getElementById('editDept').value = btn.dataset.dept;
+        document.getElementById('editSec').value = btn.dataset.sec;
+        document.getElementById('editStatus').value = btn.dataset.status;
+        editModal.show();
+    });
+});
+
+document.getElementById('editProfileForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const formData = new FormData(e.target);
+    const payload = Object.fromEntries(formData.entries());
+
+    try {
+        const resp = await fetch('/api/students/update', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        const data = await resp.json();
+        if (data.success) {
+            showToast(data.message, 'success');
+            editModal.hide();
+            setTimeout(() => window.location.reload(), 800);
+        } else {
+            showToast(data.message, 'danger');
+        }
+    } catch (err) {
+        showToast('Update failed: ' + err.message, 'danger');
+    }
+});
+
+// Delete Student & Biometrics
+document.querySelectorAll('.delete-student-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+        const roll = btn.dataset.roll;
+        const name = btn.dataset.name;
+        if (!confirm(`Are you sure you want to permanently delete student ${name} (Roll: ${roll})? All biometric photos and attendance history will be purged.`)) {
+            return;
+        }
+
+        try {
+            const resp = await fetch(`/api/student/${roll}`, { method: 'DELETE' });
+            const data = await resp.json();
+            if (data.success) {
+                showToast(data.message, 'success');
+                const row = document.getElementById(`row-${roll}`);
+                if (row) row.remove();
+            } else {
+                showToast(data.message, 'danger');
+            }
+        } catch (e) {
+            showToast('Delete failed: ' + e.message, 'danger');
+        }
+    });
+});
+</script>
+{% endblock %}

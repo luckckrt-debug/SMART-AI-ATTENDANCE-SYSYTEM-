@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+
+{% block title %}Sign In - AI Smart Classroom System{% endblock %}
+{% block page_title %}Role Authentication & Access Portal{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center align-items-center" style="min-height: 65vh;">
+    <div class="col-md-6 col-lg-5">
+        <div class="card-custom shadow-lg">
+            <div class="card-header text-center py-3" style="background: var(--navy-dark); color: #fff;">
+                <div class="fs-2 text-cyan mb-1"><i class="fa-solid fa-graduation-cap"></i></div>
+                <h5 class="fw-bold mb-0">SmartClass AI Portal</h5>
+                <small class="text-secondary">Role-Based Access Management</small>
+            </div>
+            <div class="card-body p-4">
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        {% for category, message in messages %}
+                        <div class="alert alert-{{ category }} alert-dismissible fade show small" role="alert">
+                            {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>
+                        {% endfor %}
+                    {% endif %}
+                {% endwith %}
+
+                <!-- Standard Credentials Form -->
+                <form action="{{ url_for('login_page') }}" method="POST" class="mb-4">
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold text-muted">Username</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-light"><i class="fa-solid fa-user text-primary"></i></span>
+                            <input type="text" name="username" class="form-control" placeholder="Enter username (e.g. teacher or admin)" required autofocus>
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="form-label small fw-semibold text-muted">Password</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-light"><i class="fa-solid fa-lock text-primary"></i></span>
+                            <input type="password" name="password" class="form-control" placeholder="Enter password" required>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary w-100 py-2 fw-semibold">
+                        <i class="fa-solid fa-right-to-bracket me-2"></i>Sign In to Dashboard
+                    </button>
+                </form>
+
+                <div class="position-relative text-center my-3">
+                    <hr class="text-muted">
+                    <span class="position-absolute top-50 start-50 translate-middle bg-white px-2 small text-muted">OR QUICK SWITCH</span>
+                </div>
+
+                <!-- 1-Click Role Switchers for Demonstration & Fast Access -->
+                <div class="d-grid gap-2">
+                    <a href="{{ url_for('api_switch_role', role='TEACHER') }}" class="btn btn-outline-secondary text-start py-2">
+                        <div class="d-flex align-items-center justify-content-between">
+                            <div>
+                                <i class="fa-solid fa-chalkboard-user text-primary me-2"></i>
+                                <strong>Log In as Teacher</strong>
+                                <div class="small text-muted" style="font-size: 0.75rem;">Access Attendance & Session Manager</div>
+                            </div>
+                            <span class="badge bg-light text-dark border">Prof. Sharma</span>
+                        </div>
+                    </a>
+
+                    <a href="{{ url_for('api_switch_role', role='ADMIN') }}" class="btn btn-outline-primary text-start py-2">
+                        <div class="d-flex align-items-center justify-content-between">
+                            <div>
+                                <i class="fa-solid fa-shield-halved text-success me-2"></i>
+                                <strong>Log In as Administrator</strong>
+                                <div class="small text-muted" style="font-size: 0.75rem;">Full access to Admin Panel & AI settings</div>
+                            </div>
+                            <span class="badge bg-primary">Admin Role</span>
+                        </div>
+                    </a>
+                </div>
+
+                <div class="mt-4 p-3 rounded bg-light border text-center small text-muted">
+                    <i class="fa-solid fa-lock me-1 text-secondary"></i>
+                    <strong>Role Policy:</strong> Teachers are restricted to Classroom Attendance and Session Manager. System configuration and biometric photo uploads are restricted to Administrators.
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

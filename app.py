@@ -1320,6 +1320,39 @@ def api_admin_test_photo():
         return jsonify({"success": False, "message": str(e)}), 500
 
 
+# -------------------------------------------------------------
+# GLOBAL ERROR HANDLERS (HTTP 404 & 500)
+# -------------------------------------------------------------
+@app.errorhandler(404)
+def handle_404_error(e):
+    if request.path.startswith("/api/"):
+        return jsonify({
+            "success": False,
+            "error": "NOT_FOUND",
+            "message": f"Resource or endpoint '{request.path}' was not found on this server."
+        }), 404
+    return render_template("404.html", current_user=get_current_user()), 404
+
+
+@app.errorhandler(500)
+def handle_500_error(e):
+    import traceback
+    err_tb = traceback.format_exc()
+    print(f"\n[SERVER EXCEPTION 500] {e}\n{err_tb}")
+    if request.path.startswith("/api/"):
+        return jsonify({
+            "success": False,
+            "error": "INTERNAL_SERVER_ERROR",
+            "message": "An internal server error occurred while processing the request.",
+            "details": str(e) if app.debug else "Check server logs for full audit traceback."
+        }), 500
+    return render_template(
+        "500.html",
+        current_user=get_current_user(),
+        error_message=str(e) if app.debug else None
+    ), 500
+
+
 if __name__ == "__main__":
     port = int(os.getenv("FLASK_RUN_PORT", 5000))
     active_sess = db_manager.get_active_session()

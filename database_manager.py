@@ -127,6 +127,8 @@ class DatabaseManager:
             cursor.execute("PRAGMA table_info(students)")
             existing_cols = {col[1] for col in cursor.fetchall()}
             for col_name, col_type in [
+                ("student_id", "TEXT DEFAULT ''"),
+                ("class_name", "TEXT DEFAULT ''"),
                 ("department", "TEXT DEFAULT 'Computer Science & Engineering'"),
                 ("section", "TEXT DEFAULT ''"),
                 ("profile_photo", "TEXT"),
@@ -368,6 +370,228 @@ class DatabaseManager:
                     timestamp TEXT NOT NULL
                 )
             """)
+
+
+            # 15. Student Images Table
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS student_images (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    student_id TEXT NOT NULL,
+                    file_path TEXT NOT NULL,
+                    file_name TEXT NOT NULL,
+                    file_size INTEGER DEFAULT 0,
+                    file_hash TEXT NOT NULL,
+                    mime_type TEXT DEFAULT 'image/jpeg',
+                    width INTEGER DEFAULT 0,
+                    height INTEGER DEFAULT 0,
+                    quality_score REAL DEFAULT 0.0,
+                    is_corrupted INTEGER DEFAULT 0,
+                    is_duplicate INTEGER DEFAULT 0,
+                    is_low_light INTEGER DEFAULT 0,
+                    is_blurred INTEGER DEFAULT 0,
+                    created_at TEXT NOT NULL
+                )
+            ''')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_student_images_student_id ON student_images(student_id)')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_student_images_file_hash ON student_images(file_hash)')
+
+            # 16. Datasets Table (Non-identifying classroom tasks)
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS datasets (
+                    id TEXT PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    description TEXT DEFAULT '',
+                    task_type TEXT NOT NULL DEFAULT 'person_detection',
+                    total_images INTEGER DEFAULT 0,
+                    total_size_bytes INTEGER DEFAULT 0,
+                    train_split REAL DEFAULT 0.70,
+                    val_split REAL DEFAULT 0.15,
+                    test_split REAL DEFAULT 0.15,
+                    status TEXT DEFAULT 'Ready',
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                )
+            ''')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_datasets_task_type ON datasets(task_type)')
+
+            # 17. Dataset Files Table
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS dataset_files (
+                    id TEXT PRIMARY KEY,
+                    dataset_id TEXT NOT NULL,
+                    file_path TEXT NOT NULL,
+                    file_name TEXT NOT NULL,
+                    file_hash TEXT NOT NULL,
+                    file_size INTEGER DEFAULT 0,
+                    width INTEGER DEFAULT 0,
+                    height INTEGER DEFAULT 0,
+                    split_category TEXT DEFAULT 'train',
+                    quality_score REAL DEFAULT 0.0,
+                    is_corrupted INTEGER DEFAULT 0,
+                    is_duplicate INTEGER DEFAULT 0,
+                    is_low_light INTEGER DEFAULT 0,
+                    is_blurred INTEGER DEFAULT 0,
+                    annotation_data TEXT DEFAULT '',
+                    created_at TEXT NOT NULL
+                )
+            ''')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_dataset_files_dataset_id ON dataset_files(dataset_id)')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_dataset_files_hash ON dataset_files(file_hash)')
+
+            # 18. Training Jobs Table
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS training_jobs (
+                    id TEXT PRIMARY KEY,
+                    job_name TEXT NOT NULL,
+                    dataset_id TEXT NOT NULL,
+                    task_type TEXT NOT NULL,
+                    model_architecture TEXT DEFAULT 'MobileNet-PersonDetector',
+                    status TEXT DEFAULT 'pending',
+                    total_epochs INTEGER DEFAULT 10,
+                    current_epoch INTEGER DEFAULT 0,
+                    batch_size INTEGER DEFAULT 16,
+                    learning_rate REAL DEFAULT 0.001,
+                    optimizer TEXT DEFAULT 'adam',
+                    train_loss REAL DEFAULT 0.0,
+                    val_loss REAL DEFAULT 0.0,
+                    train_acc REAL DEFAULT 0.0,
+                    val_acc REAL DEFAULT 0.0,
+                    precision REAL DEFAULT 0.0,
+                    recall REAL DEFAULT 0.0,
+                    mAP REAL DEFAULT 0.0,
+                    progress_percent REAL DEFAULT 0.0,
+                    model_version TEXT DEFAULT 'v1.0',
+                    checkpoint_path TEXT DEFAULT '',
+                    error_message TEXT DEFAULT '',
+                    metrics_history TEXT DEFAULT '[]',
+                    started_at TEXT,
+                    completed_at TEXT,
+                    created_at TEXT NOT NULL
+                )
+            ''')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_training_jobs_status ON training_jobs(status)')
+
+            # 19. Training Logs Table
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS training_logs (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    job_id TEXT NOT NULL,
+                    epoch INTEGER DEFAULT 0,
+                    log_level TEXT DEFAULT 'INFO',
+                    message TEXT NOT NULL,
+                    timestamp TEXT NOT NULL
+                )
+            ''')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_training_logs_job_id ON training_logs(job_id)')
+
+            # 20. Model Versions Table
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS model_versions (
+                    id TEXT PRIMARY KEY,
+                    version_tag TEXT NOT NULL,
+                    job_id TEXT,
+                    task_type TEXT NOT NULL,
+                    architecture TEXT NOT NULL,
+                    weights_path TEXT NOT NULL,
+                    metrics TEXT DEFAULT '{}',
+                    is_active INTEGER DEFAULT 0,
+                    created_at TEXT NOT NULL
+                )
+            ''')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_model_versions_task ON model_versions(task_type)')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_model_versions_active ON model_versions(is_active)')
+
+            # 21. Camera Devices Table
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS camera_devices (
+                    id TEXT PRIMARY KEY,
+                    device_name TEXT NOT NULL,
+                    device_index INTEGER DEFAULT 0,
+                    resolution TEXT DEFAULT '1280x720',
+                    stream_url TEXT DEFAULT '',
+                    location TEXT DEFAULT 'Classroom Main',
+                    status TEXT DEFAULT 'ONLINE',
+                    fps REAL DEFAULT 0.0,
+                    latency_ms INTEGER DEFAULT 0,
+                    active_model_version TEXT DEFAULT 'v1.0-PersonOccupancy',
+                    confidence_threshold REAL DEFAULT 0.50,
+                    created_at TEXT NOT NULL
+                )
+            ''')
+
+            # 22. Attendance Sessions Table
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS attendance_sessions (
+                    session_id TEXT PRIMARY KEY,
+                    degree TEXT DEFAULT 'B.Tech',
+                    stream TEXT DEFAULT 'Computer Science & Engineering',
+                    academic_year TEXT NOT NULL,
+                    academic_session TEXT DEFAULT '2026-27',
+                    department TEXT NOT NULL,
+                    class_name TEXT NOT NULL,
+                    section TEXT DEFAULT '',
+                    subject TEXT NOT NULL,
+                    faculty_name TEXT NOT NULL,
+                    faculty_id TEXT,
+                    status TEXT DEFAULT 'ACTIVE',
+                    start_time TEXT NOT NULL,
+                    end_time TEXT,
+                    occupancy_count INTEGER DEFAULT 0,
+                    total_enrolled INTEGER DEFAULT 0,
+                    verified_count INTEGER DEFAULT 0,
+                    created_at TEXT NOT NULL
+                )
+            ''')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_att_sessions_status ON attendance_sessions(status)')
+
+            # 23. Attendance Records Table
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS attendance_records (
+                    attendance_id TEXT PRIMARY KEY,
+                    session_id TEXT NOT NULL,
+                    student_id TEXT NOT NULL,
+                    roll_number TEXT NOT NULL,
+                    student_name TEXT NOT NULL,
+                    status TEXT NOT NULL DEFAULT 'PRESENT',
+                    first_check_in TEXT NOT NULL,
+                    last_seen TEXT,
+                    total_duration_minutes INTEGER DEFAULT 0,
+                    verification_type TEXT DEFAULT 'TEACHER_REVIEW',
+                    verified_by TEXT,
+                    audit_notes TEXT DEFAULT '',
+                    created_at TEXT NOT NULL,
+                    UNIQUE (session_id, student_id)
+                )
+            ''')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_att_records_session ON attendance_records(session_id)')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_att_records_student ON attendance_records(student_id)')
+
+            # Seed default camera device if empty
+            cursor.execute("SELECT COUNT(*) FROM camera_devices")
+            if cursor.fetchone()[0] == 0:
+                now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                cursor.execute('''
+                    INSERT INTO camera_devices (id, device_name, device_index, resolution, location, status, active_model_version, confidence_threshold, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ''', ("CAM_01", "Classroom Main Cam", 0, "1280x720", "Hall 101 - Textile & Engineering", "ONLINE", "v1.0-PersonDetector", 0.50, now_str))
+
+            # Seed baseline dataset if empty
+            cursor.execute("SELECT COUNT(*) FROM datasets")
+            if cursor.fetchone()[0] == 0:
+                now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                cursor.execute('''
+                    INSERT INTO datasets (id, name, description, task_type, total_images, total_size_bytes, train_split, val_split, test_split, status, created_at, updated_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ''', ("DS_CLASSROOM_BASE", "Classroom Occupancy & Non-Identifying People Baseline", "Baseline dataset for person detection and visual occupancy headcount", "person_detection", 0, 0, 0.70, 0.15, 0.15, "Ready", now_str, now_str))
+
+            # Seed baseline model version if empty
+            cursor.execute("SELECT COUNT(*) FROM model_versions")
+            if cursor.fetchone()[0] == 0:
+                now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                cursor.execute('''
+                    INSERT INTO model_versions (id, version_tag, job_id, task_type, architecture, weights_path, metrics, is_active, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ''', ("MOD_v1.0_BASELINE", "v1.0", None, "person_detection", "MobileNet-PersonDetector", "Model/versions/v1.0_baseline.json", json.dumps({"val_loss": 0.22, "precision": 0.94, "recall": 0.91, "mAP": 0.93}), 1, now_str))
 
             # Seed default users if empty
             cursor.execute("SELECT COUNT(*) FROM users")
@@ -2631,6 +2855,652 @@ class DatabaseManager:
                 )
             except Exception:
                 pass
+
+
+
+    # =========================================================================
+    # MODULE 1: STUDENT MANAGEMENT & BULK IMPORT/EXPORT
+    # =========================================================================
+
+    def add_student_record(self, name, roll_number, student_id=None, class_name=None,
+                           section=None, academic_session=None, profile_photo=None,
+                           enrollment_status="Active", department="Computer Science & Engineering",
+                           degree="B.Tech", stream=None, academic_year="1st Year",
+                           email="", mobile=""):
+        """Creates or registers a student record with all Module 1 required fields."""
+        roll = str(roll_number).strip()
+        st_id = (student_id or roll).strip()
+        now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        stream_val = stream or department
+
+        with sqlite3.connect(SQLITE_PATH) as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                INSERT INTO students (
+                    roll_number, student_id, name, class_name, section, academic_session,
+                    profile_photo, enrollment_status, department, degree, stream,
+                    academic_year, email, mobile, consent_given, consent_date, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
+                ON CONFLICT(roll_number) DO UPDATE SET
+                    student_id = excluded.student_id,
+                    name = excluded.name,
+                    class_name = excluded.class_name,
+                    section = excluded.section,
+                    academic_session = excluded.academic_session,
+                    profile_photo = COALESCE(excluded.profile_photo, students.profile_photo),
+                    enrollment_status = excluded.enrollment_status,
+                    department = excluded.department,
+                    degree = excluded.degree,
+                    stream = excluded.stream,
+                    academic_year = excluded.academic_year,
+                    email = excluded.email,
+                    mobile = excluded.mobile
+            """, (
+                roll, st_id, name.strip(), class_name or f"{degree} {academic_year}",
+                section or "Section A", academic_session or "2026-27", profile_photo or "",
+                enrollment_status, department, degree, stream_val, academic_year,
+                email, mobile, now_str, now_str
+            ))
+            conn.commit()
+
+        if self.is_mongo_connected and self.mongo_db is not None:
+            try:
+                self.mongo_db.Students.update_one(
+                    {"roll_number": roll},
+                    {"$set": {
+                        "roll_number": roll,
+                        "student_id": st_id,
+                        "name": name.strip(),
+                        "class_name": class_name or f"{degree} {academic_year}",
+                        "section": section or "Section A",
+                        "academic_session": academic_session or "2026-27",
+                        "profile_photo": profile_photo or "",
+                        "enrollment_status": enrollment_status,
+                        "department": department,
+                        "degree": degree,
+                        "stream": stream_val,
+                        "academic_year": academic_year,
+                        "email": email,
+                        "mobile": mobile,
+                        "created_at": now_str
+                    }},
+                    upsert=True
+                )
+            except Exception as e:
+                print(f"[DatabaseManager] MongoDB student sync error: {e}")
+
+        return self.get_student(roll)
+
+    def edit_student_record(self, roll_number, name=None, student_id=None, class_name=None,
+                            section=None, academic_session=None, enrollment_status=None,
+                            department=None, degree=None, stream=None, academic_year=None,
+                            email=None, mobile=None):
+        """Updates an existing student profile with full audit-trail safety."""
+        roll = str(roll_number).strip()
+        curr = self.get_student(roll)
+        if not curr:
+            return None
+
+        new_name = name.strip() if name is not None else curr.get("name", "")
+        new_sid = student_id.strip() if student_id is not None else curr.get("student_id", roll)
+        new_class = class_name if class_name is not None else curr.get("class_name", "")
+        new_sec = section if section is not None else curr.get("section", "")
+        new_sess = academic_session if academic_session is not None else curr.get("academic_session", "2026-27")
+        new_status = enrollment_status if enrollment_status is not None else curr.get("enrollment_status", "Active")
+        new_dept = department if department is not None else curr.get("department", "Computer Science & Engineering")
+        new_deg = degree if degree is not None else curr.get("degree", "B.Tech")
+        new_stream = stream if stream is not None else curr.get("stream", new_dept)
+        new_yr = academic_year if academic_year is not None else curr.get("academic_year", "1st Year")
+        new_email = email if email is not None else curr.get("email", "")
+        new_mob = mobile if mobile is not None else curr.get("mobile", "")
+
+        with sqlite3.connect(SQLITE_PATH) as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                UPDATE students SET
+                    name = ?, student_id = ?, class_name = ?, section = ?,
+                    academic_session = ?, enrollment_status = ?, department = ?,
+                    degree = ?, stream = ?, academic_year = ?, email = ?, mobile = ?
+                WHERE roll_number = ?
+            """, (
+                new_name, new_sid, new_class, new_sec, new_sess, new_status,
+                new_dept, new_deg, new_stream, new_yr, new_email, new_mob, roll
+            ))
+            conn.commit()
+
+        if self.is_mongo_connected and self.mongo_db is not None:
+            try:
+                self.mongo_db.Students.update_one(
+                    {"roll_number": roll},
+                    {"$set": {
+                        "name": new_name, "student_id": new_sid, "class_name": new_class,
+                        "section": new_sec, "academic_session": new_sess, "enrollment_status": new_status,
+                        "department": new_dept, "degree": new_deg, "stream": new_stream,
+                        "academic_year": new_yr, "email": new_email, "mobile": new_mob
+                    }}
+                )
+            except Exception:
+                pass
+
+        return self.get_student(roll)
+
+    def search_filter_students(self, query="", class_name="", section="", status="", stream=""):
+        """Filters students by search keyword, class, section, and enrollment status."""
+        all_students = self.get_all_students()
+        q = (query or "").strip().lower()
+        cls_filter = (class_name or "").strip().lower()
+        sec_filter = (section or "").strip().lower()
+        st_filter = (status or "").strip().lower()
+        stream_filter = (stream or "").strip().lower()
+
+        filtered = []
+        for s in all_students:
+            s_name = str(s.get("name", "")).lower()
+            s_roll = str(s.get("roll_number", "")).lower()
+            s_sid = str(s.get("student_id", "")).lower()
+            s_cls = str(s.get("class_name", "") or f"{s.get('degree', '')} {s.get('academic_year', '')}").lower()
+            s_sec = str(s.get("section", "")).lower()
+            s_st = str(s.get("enrollment_status", "")).lower()
+
+            if q and not (q in s_name or q in s_roll or q in s_sid):
+                continue
+            if cls_filter and cls_filter not in s_cls:
+                continue
+            if sec_filter and sec_filter != s_sec:
+                continue
+            if st_filter and st_filter != s_st:
+                continue
+            s_stream = str(s.get("stream", "") or s.get("department", "")).lower()
+            if stream_filter and stream_filter not in s_stream:
+                continue
+            filtered.append(s)
+
+        return filtered
+
+    def bulk_import_students(self, records):
+        """
+        Imports student records from a list of dictionaries (from CSV/Excel).
+        Validates columns and prevents duplicate errors.
+        """
+        imported_count = 0
+        skipped_count = 0
+        errors = []
+
+        for idx, row in enumerate(records, start=1):
+            try:
+                # Handle flexible header naming
+                name = (row.get("name") or row.get("full_name") or row.get("student_name") or row.get("Student Name") or "").strip()
+                roll = (row.get("roll_number") or row.get("roll") or row.get("roll_no") or row.get("Roll Number") or "").strip()
+                st_id = (row.get("student_id") or row.get("id") or row.get("Student ID") or roll).strip()
+                cls = (row.get("class") or row.get("class_name") or row.get("Class") or "B.Tech 1st Year").strip()
+                sec = (row.get("section") or row.get("Section") or "Section A").strip()
+                sess = (row.get("academic_session") or row.get("session") or row.get("Session") or "2026-27").strip()
+                status = (row.get("status") or row.get("enrollment_status") or row.get("Status") or "Active").strip()
+                degree = (row.get("degree") or row.get("Degree") or "B.Tech").strip()
+                stream = (row.get("stream") or row.get("branch") or row.get("Branch") or row.get("department") or "Textile Technology").strip()
+                email = (row.get("email") or row.get("Email") or "").strip()
+                mobile = (row.get("mobile") or row.get("phone") or row.get("Mobile") or "").strip()
+
+                if not name or not roll:
+                    skipped_count += 1
+                    errors.append(f"Row {idx}: Missing Student Name or Roll Number.")
+                    continue
+
+                self.add_student_record(
+                    name=name,
+                    roll_number=roll,
+                    student_id=st_id,
+                    class_name=cls,
+                    section=sec,
+                    academic_session=sess,
+                    enrollment_status=status,
+                    degree=degree,
+                    stream=stream,
+                    department=stream,
+                    email=email,
+                    mobile=mobile
+                )
+                imported_count += 1
+            except Exception as e:
+                skipped_count += 1
+                errors.append(f"Row {idx} ({row.get('roll_number', 'unknown')}): {e}")
+
+        return {
+            "success": True,
+            "total_rows": len(records),
+            "imported_count": imported_count,
+            "skipped_count": skipped_count,
+            "errors": errors
+        }
+
+    # =========================================================================
+    # MODULE 2: IMAGE DATASET MANAGEMENT & STORAGE
+    # =========================================================================
+
+    def create_dataset(self, name, description="", task_type="person_detection",
+                       train_split=0.70, val_split=0.15, test_split=0.15):
+        ds_id = f"DS_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}_{os.urandom(2).hex().upper()}"
+        now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        with sqlite3.connect(SQLITE_PATH) as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                INSERT INTO datasets (
+                    id, name, description, task_type, total_images, total_size_bytes,
+                    train_split, val_split, test_split, status, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, 0, 0, ?, ?, ?, 'Ready', ?, ?)
+            """, (ds_id, name.strip(), description.strip(), task_type, train_split, val_split, test_split, now_str, now_str))
+            conn.commit()
+
+        # Create physical directory
+        ds_dir = BASE_DIR / "static" / "datasets" / ds_id
+        ds_dir.mkdir(parents=True, exist_ok=True)
+        return self.get_dataset(ds_id)
+
+    def get_all_datasets(self):
+        with sqlite3.connect(SQLITE_PATH) as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM datasets ORDER BY created_at DESC")
+            return [dict(r) for r in cursor.fetchall()]
+
+    def get_dataset(self, dataset_id):
+        with sqlite3.connect(SQLITE_PATH) as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM datasets WHERE id = ?", (dataset_id,))
+            row = cursor.fetchone()
+            return dict(row) if row else None
+
+    def delete_dataset(self, dataset_id):
+        with sqlite3.connect(SQLITE_PATH) as conn:
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM dataset_files WHERE dataset_id = ?", (dataset_id,))
+            cursor.execute("DELETE FROM datasets WHERE id = ?", (dataset_id,))
+            conn.commit()
+
+        ds_dir = BASE_DIR / "static" / "datasets" / dataset_id
+        if ds_dir.exists():
+            import shutil
+            shutil.rmtree(ds_dir, ignore_errors=True)
+        return True
+
+    def check_dataset_duplicate(self, dataset_id, file_hash):
+        with sqlite3.connect(SQLITE_PATH) as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT COUNT(*) FROM dataset_files WHERE dataset_id = ? AND file_hash = ?", (dataset_id, file_hash))
+            return cursor.fetchone()[0] > 0
+
+    def add_dataset_file(self, dataset_id, file_path, file_name, file_hash, file_size,
+                         width=0, height=0, quality_score=100.0, is_corrupted=0,
+                         is_duplicate=0, is_low_light=0, is_blurred=0, split_category="train"):
+        f_id = f"FILE_{datetime.datetime.now().strftime('%Y%m%d%H%M%S')}_{os.urandom(3).hex().upper()}"
+        now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        with sqlite3.connect(SQLITE_PATH) as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                INSERT INTO dataset_files (
+                    id, dataset_id, file_path, file_name, file_hash, file_size,
+                    width, height, split_category, quality_score, is_corrupted,
+                    is_duplicate, is_low_light, is_blurred, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                f_id, dataset_id, file_path, file_name, file_hash, file_size,
+                width, height, split_category, quality_score, is_corrupted,
+                is_duplicate, is_low_light, is_blurred, now_str
+            ))
+            # Update dataset summary totals
+            cursor.execute("""
+                UPDATE datasets SET
+                    total_images = (SELECT COUNT(*) FROM dataset_files WHERE dataset_id = ?),
+                    total_size_bytes = (SELECT COALESCE(SUM(file_size), 0) FROM dataset_files WHERE dataset_id = ?),
+                    updated_at = ?
+                WHERE id = ?
+            """, (dataset_id, dataset_id, now_str, dataset_id))
+            conn.commit()
+
+        return f_id
+
+    def get_dataset_files(self, dataset_id, split=None):
+        with sqlite3.connect(SQLITE_PATH) as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            if split:
+                cursor.execute("SELECT * FROM dataset_files WHERE dataset_id = ? AND split_category = ? ORDER BY created_at DESC", (dataset_id, split))
+            else:
+                cursor.execute("SELECT * FROM dataset_files WHERE dataset_id = ? ORDER BY created_at DESC", (dataset_id,))
+            return [dict(r) for r in cursor.fetchall()]
+
+    def delete_dataset_file(self, file_id):
+        with sqlite3.connect(SQLITE_PATH) as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM dataset_files WHERE id = ?", (file_id,))
+            row = cursor.fetchone()
+            if not row:
+                return False
+            rec = dict(row)
+            cursor.execute("DELETE FROM dataset_files WHERE id = ?", (file_id,))
+            # Update dataset summary
+            now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            cursor.execute("""
+                UPDATE datasets SET
+                    total_images = (SELECT COUNT(*) FROM dataset_files WHERE dataset_id = ?),
+                    total_size_bytes = (SELECT COALESCE(SUM(file_size), 0) FROM dataset_files WHERE dataset_id = ?),
+                    updated_at = ?
+                WHERE id = ?
+            """, (rec["dataset_id"], rec["dataset_id"], now_str, rec["dataset_id"]))
+            conn.commit()
+
+        # Remove physical file
+        try:
+            p = BASE_DIR / rec["file_path"].lstrip("/").replace("/", os.sep)
+            if p.exists():
+                p.unlink()
+        except Exception:
+            pass
+        return True
+
+    # =========================================================================
+    # MODULE 3 & 4: AI TRAINING STUDIO & ASYNCHRONOUS MONITOR
+    # =========================================================================
+
+    def create_training_job(self, job_name, dataset_id, task_type,
+                            model_architecture="MobileNet-PersonDetector",
+                            epochs=10, batch_size=16, learning_rate=0.001,
+                            optimizer="adam"):
+        j_id = f"JOB_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}_{os.urandom(2).hex().upper()}"
+        now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        with sqlite3.connect(SQLITE_PATH) as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                INSERT INTO training_jobs (
+                    id, job_name, dataset_id, task_type, model_architecture, status,
+                    total_epochs, current_epoch, batch_size, learning_rate, optimizer,
+                    train_loss, val_loss, train_acc, val_acc, precision, recall, mAP,
+                    progress_percent, model_version, error_message, metrics_history,
+                    created_at
+                ) VALUES (?, ?, ?, ?, ?, 'pending', ?, 0, ?, ?, ?, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 'v1.0', '', '[]', ?)
+            """, (
+                j_id, job_name, dataset_id, task_type, model_architecture,
+                epochs, batch_size, learning_rate, optimizer, now_str
+            ))
+            conn.commit()
+
+        return self.get_training_job(j_id)
+
+    def update_training_job_progress(self, job_id, current_epoch, train_loss, val_loss,
+                                     train_acc, val_acc, precision, recall, mAP, progress,
+                                     status="running", metrics_history=None, error_message=None,
+                                     checkpoint_path=None):
+        now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        with sqlite3.connect(SQLITE_PATH) as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                UPDATE training_jobs SET
+                    current_epoch = ?,
+                    train_loss = ?,
+                    val_loss = ?,
+                    train_acc = ?,
+                    val_acc = ?,
+                    precision = ?,
+                    recall = ?,
+                    mAP = ?,
+                    progress_percent = ?,
+                    status = ?,
+                    metrics_history = COALESCE(?, metrics_history),
+                    error_message = COALESCE(?, error_message),
+                    checkpoint_path = COALESCE(?, checkpoint_path),
+                    completed_at = CASE WHEN ? IN ('completed', 'failed', 'stopped') THEN ? ELSE completed_at END
+                WHERE id = ?
+            """, (
+                current_epoch, train_loss, val_loss, train_acc, val_acc,
+                precision, recall, mAP, progress, status,
+                json.dumps(metrics_history) if metrics_history is not None else None,
+                error_message, checkpoint_path,
+                status, now_str, job_id
+            ))
+            conn.commit()
+
+    def get_training_job(self, job_id):
+        with sqlite3.connect(SQLITE_PATH) as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM training_jobs WHERE id = ?", (job_id,))
+            row = cursor.fetchone()
+            if not row:
+                return None
+            d = dict(row)
+            try:
+                d["metrics_history"] = json.loads(d.get("metrics_history") or "[]")
+            except Exception:
+                d["metrics_history"] = []
+            return d
+
+    def get_all_training_jobs(self, limit=20):
+        with sqlite3.connect(SQLITE_PATH) as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM training_jobs ORDER BY created_at DESC LIMIT ?", (limit,))
+            res = []
+            for r in cursor.fetchall():
+                d = dict(r)
+                try:
+                    d["metrics_history"] = json.loads(d.get("metrics_history") or "[]")
+                except Exception:
+                    d["metrics_history"] = []
+                res.append(d)
+            return res
+
+    def add_training_log(self, job_id, epoch, message, log_level="INFO"):
+        now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        with sqlite3.connect(SQLITE_PATH) as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                INSERT INTO training_logs (job_id, epoch, log_level, message, timestamp)
+                VALUES (?, ?, ?, ?, ?)
+            """, (job_id, epoch, log_level, message, now_str))
+            conn.commit()
+
+    def get_training_logs(self, job_id, limit=100):
+        with sqlite3.connect(SQLITE_PATH) as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM training_logs WHERE job_id = ? ORDER BY id ASC LIMIT ?", (job_id, limit))
+            return [dict(r) for r in cursor.fetchall()]
+
+    def create_model_version(self, version_tag, job_id, task_type, architecture, weights_path, metrics):
+        m_id = f"MOD_{version_tag}_{os.urandom(2).hex().upper()}"
+        now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        metrics_json = json.dumps(metrics) if isinstance(metrics, dict) else str(metrics)
+
+        with sqlite3.connect(SQLITE_PATH) as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                INSERT INTO model_versions (
+                    id, version_tag, job_id, task_type, architecture, weights_path, metrics, is_active, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?)
+            """, (m_id, version_tag, job_id, task_type, architecture, weights_path, metrics_json, now_str))
+            # Deactivate previous models for the same task
+            cursor.execute("UPDATE model_versions SET is_active = 0 WHERE id != ? AND task_type = ?", (m_id, task_type))
+            conn.commit()
+
+        return m_id
+
+    def get_model_versions(self, task_type=None):
+        with sqlite3.connect(SQLITE_PATH) as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            if task_type:
+                cursor.execute("SELECT * FROM model_versions WHERE task_type = ? ORDER BY created_at DESC", (task_type,))
+            else:
+                cursor.execute("SELECT * FROM model_versions ORDER BY created_at DESC")
+            res = []
+            for r in cursor.fetchall():
+                d = dict(r)
+                try:
+                    d["metrics"] = json.loads(d.get("metrics") or "{}")
+                except Exception:
+                    d["metrics"] = {}
+                res.append(d)
+            return res
+
+    def set_active_model_version(self, version_id):
+        with sqlite3.connect(SQLITE_PATH) as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM model_versions WHERE id = ?", (version_id,))
+            target = cursor.fetchone()
+            if not target:
+                return False
+            task = target["task_type"]
+            cursor.execute("UPDATE model_versions SET is_active = 0 WHERE task_type = ?", (task,))
+            cursor.execute("UPDATE model_versions SET is_active = 1 WHERE id = ?", (version_id,))
+            conn.commit()
+            return True
+
+    # =========================================================================
+    # MODULE 5: CAMERA DEVICE INTEGRATION
+    # =========================================================================
+
+    def get_camera_devices(self):
+        with sqlite3.connect(SQLITE_PATH) as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM camera_devices ORDER BY id ASC")
+            return [dict(r) for r in cursor.fetchall()]
+
+    def update_camera_status(self, cam_id, status="ONLINE", fps=0.0, latency_ms=0):
+        with sqlite3.connect(SQLITE_PATH) as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                UPDATE camera_devices SET status = ?, fps = ?, latency_ms = ? WHERE id = ?
+            """, (status, fps, latency_ms, cam_id))
+            conn.commit()
+
+    # =========================================================================
+    # MODULE 6: TEACHER-REVIEWED ATTENDANCE & AUDIT TRAIL
+    # =========================================================================
+
+    def get_teacher_attendance_roster(self, session_id=None, class_name=None, section=None):
+        """Returns class roster merged with verified attendance status for active session."""
+        sess = session_id
+        if not sess:
+            active_s = self.get_active_session()
+            sess = active_s["session_id"] if active_s else None
+
+        students = self.get_all_students(section=section)
+        with sqlite3.connect(SQLITE_PATH) as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            att_map = {}
+            if sess:
+                cursor.execute("SELECT * FROM attendance_records WHERE session_id = ?", (sess,))
+                for r in cursor.fetchall():
+                    att_map[r["student_id"]] = dict(r)
+                # Fallback check on base attendance table
+                cursor.execute("SELECT * FROM attendance WHERE session_id = ?", (sess,))
+                for r in cursor.fetchall():
+                    if r["roll_number"] not in att_map:
+                        att_map[r["roll_number"]] = dict(r)
+
+        roster = []
+        for s in students:
+            sid = s.get("student_id") or s.get("roll_number")
+            att = att_map.get(sid) or att_map.get(s.get("roll_number"))
+            item = dict(s)
+            item["attendance_status"] = att["status"] if att else "ABSENT"
+            item["first_check_in"] = att["first_check_in"] if att else None
+            item["verified_by"] = att.get("verified_by") if att else None
+            item["audit_notes"] = att.get("audit_notes") if att else None
+            roster.append(item)
+
+        return roster
+
+    def teacher_verify_attendance(self, session_id, student_id, status="PRESENT",
+                                  verified_by="Teacher", audit_notes="Teacher Manual Review"):
+        """Marks or updates attendance with audit trail and duplicate protection."""
+        now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        att_id = f"ATT_{session_id}_{student_id}"
+
+        student = self.get_student(student_id)
+        st_name = student.get("name", "Student") if student else "Student"
+        roll = student.get("roll_number", student_id) if student else student_id
+
+        with sqlite3.connect(SQLITE_PATH) as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                INSERT INTO attendance_records (
+                    attendance_id, session_id, student_id, roll_number, student_name,
+                    status, first_check_in, last_seen, total_duration_minutes,
+                    verification_type, verified_by, audit_notes, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 45, 'TEACHER_REVIEW', ?, ?, ?)
+                ON CONFLICT(session_id, student_id) DO UPDATE SET
+                    status = excluded.status,
+                    verified_by = excluded.verified_by,
+                    audit_notes = excluded.audit_notes,
+                    last_seen = excluded.last_seen
+            """, (
+                att_id, session_id, student_id, roll, st_name,
+                status.upper(), now_str, now_str, verified_by, audit_notes, now_str
+            ))
+
+            # Mirror into primary attendance table
+            cursor.execute("""
+                INSERT INTO attendance (
+                    attendance_id, session_id, roll_number, name, status,
+                    first_check_in, last_seen, total_duration_minutes, verification_method
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, 45.0, 'TEACHER_REVIEW')
+                ON CONFLICT(session_id, roll_number) DO UPDATE SET
+                    status = excluded.status,
+                    last_seen = excluded.last_seen
+            """, (
+                att_id, session_id, roll, st_name, status.upper(),
+                now_str, now_str
+            ))
+
+            # Record audit event
+            event_id = f"EVT_{datetime.datetime.now().strftime('%Y%m%d%H%M%S')}_{os.urandom(2).hex()}"
+            cursor.execute("""
+                INSERT INTO session_events (event_id, session_id, roll_number, name, event_type, details, timestamp)
+                VALUES (?, ?, ?, ?, 'MANUAL_VERIFY', ?, ?)
+            """, (event_id, session_id, roll, st_name, f"Status set to {status.upper()} by {verified_by}. Note: {audit_notes}", now_str))
+
+            conn.commit()
+
+        return True
+
+    def generate_attendance_report(self, date_str=None, month_str=None):
+        """Generates summary attendance reports for daily or monthly review."""
+        with sqlite3.connect(SQLITE_PATH) as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            if date_str:
+                cursor.execute("""
+                    SELECT ar.*, cs.subject, cs.section, cs.faculty_name
+                    FROM attendance_records ar
+                    LEFT JOIN classroom_sessions cs ON ar.session_id = cs.session_id
+                    WHERE date(ar.created_at) = date(?)
+                    ORDER BY ar.created_at DESC
+                """, (date_str,))
+            elif month_str:
+                cursor.execute("""
+                    SELECT ar.*, cs.subject, cs.section, cs.faculty_name
+                    FROM attendance_records ar
+                    LEFT JOIN classroom_sessions cs ON ar.session_id = cs.session_id
+                    WHERE strftime('%Y-%m', ar.created_at) = ?
+                    ORDER BY ar.created_at DESC
+                """, (month_str,))
+            else:
+                cursor.execute("""
+                    SELECT ar.*, cs.subject, cs.section, cs.faculty_name
+                    FROM attendance_records ar
+                    LEFT JOIN classroom_sessions cs ON ar.session_id = cs.session_id
+                    ORDER BY ar.created_at DESC LIMIT 200
+                """)
+            return [dict(r) for r in cursor.fetchall()]
 
 
 # Global singleton instance

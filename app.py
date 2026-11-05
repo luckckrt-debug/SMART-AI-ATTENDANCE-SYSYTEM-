@@ -42,6 +42,10 @@ app.config["TEMPLATES_AUTO_RELOAD"] = True
 app.config["SEND_FILE_MAX_AGE_DEFAULT"] = 0
 app.permanent_session_lifetime = datetime.timedelta(days=7)
 
+# Register AI Training Studio & Visual Analytics Blueprint
+from studio_routes import studio_bp
+app.register_blueprint(studio_bp)
+
 
 @app.after_request
 def add_no_cache_headers(response):

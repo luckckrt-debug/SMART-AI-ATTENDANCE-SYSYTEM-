@@ -43,6 +43,11 @@
                     <i class="fa-solid fa-clipboard-user"></i>
                     <span>Attendance Records</span>
                 </a>
+                <a href="/studio" class="sidebar-link {% if request.path.startswith('/studio') %}active{% endif %}">
+                    <i class="fa-solid fa-brain text-cyan"></i>
+                    <span>AI Training Studio</span>
+                    <span class="badge bg-primary text-white ms-auto" style="font-size: 0.65rem;">Studio</span>
+                </a>
 
                 <!-- ADMINISTRATIVE PANEL (VISIBLE ONLY TO ADMINS) -->
                 {% if is_admin %}

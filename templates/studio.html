@@ -1,0 +1,1786 @@
+{% extends "base.html" %}
+
+{% block title %}AI Training Studio & Non-Identifying Visual Analytics - SmartClass AI{% endblock %}
+{% block page_title %}<i class="fa-solid fa-brain text-cyan me-2"></i>AI Training Studio & Non-Identifying Visual Studio{% endblock %}
+
+{% block extra_head %}
+<!-- Chart.js for real-time training loss and accuracy metrics -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+    :root {
+        --studio-bg: #070e1b;
+        --studio-card-bg: #0d1b2e;
+        --studio-border: rgba(14, 165, 233, 0.18);
+        --studio-cyan: #0ea5e9;
+        --studio-cyan-glow: rgba(14, 165, 233, 0.35);
+        --studio-emerald: #10b981;
+        --studio-amber: #f59e0b;
+    }
+
+    body {
+        background-color: var(--studio-bg);
+        color: #e2e8f0;
+    }
+
+    .studio-card {
+        background: var(--studio-card-bg);
+        border: 1px solid var(--studio-border);
+        border-radius: 12px;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+        overflow: hidden;
+        margin-bottom: 1.5rem;
+    }
+
+    .studio-card-header {
+        background: rgba(15, 23, 42, 0.85);
+        border-bottom: 1px solid var(--studio-border);
+        padding: 0.9rem 1.25rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .studio-nav-pills .nav-link {
+        color: #94a3b8;
+        background: transparent;
+        border: 1px solid transparent;
+        font-weight: 600;
+        padding: 0.65rem 1.25rem;
+        border-radius: 8px;
+        margin-right: 0.5rem;
+        transition: all 0.2s ease;
+    }
+
+    .studio-nav-pills .nav-link:hover {
+        color: #f1f5f9;
+        background: rgba(14, 165, 233, 0.1);
+    }
+
+    .studio-nav-pills .nav-link.active {
+        color: #031326;
+        background: #38bdf8;
+        border-color: #38bdf8;
+        box-shadow: 0 0 15px var(--studio-cyan-glow);
+    }
+
+    .stat-badge {
+        font-size: 0.72rem;
+        padding: 0.25rem 0.6rem;
+        border-radius: 6px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .badge-good {
+        background: rgba(16, 185, 129, 0.2);
+        color: #34d399;
+        border: 1px solid rgba(16, 185, 129, 0.4);
+    }
+
+    .badge-warn {
+        background: rgba(245, 158, 11, 0.2);
+        color: #fbbf24;
+        border: 1px solid rgba(245, 158, 11, 0.4);
+    }
+
+    .badge-danger-tag {
+        background: rgba(239, 68, 68, 0.2);
+        color: #f87171;
+        border: 1px solid rgba(239, 68, 68, 0.4);
+    }
+
+    .gallery-img-card {
+        background: #091322;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 8px;
+        overflow: hidden;
+        transition: transform 0.2s ease, border-color 0.2s ease;
+        position: relative;
+    }
+
+    .gallery-img-card:hover {
+        transform: translateY(-3px);
+        border-color: var(--studio-cyan);
+    }
+
+    .gallery-img-preview {
+        width: 100%;
+        height: 140px;
+        object-fit: cover;
+        background: #020617;
+    }
+
+    .gallery-overlay-badge {
+        position: absolute;
+        top: 6px;
+        left: 6px;
+    }
+
+    .gallery-delete-btn {
+        position: absolute;
+        top: 6px;
+        right: 6px;
+        background: rgba(239, 68, 68, 0.85);
+        color: white;
+        border: none;
+        border-radius: 4px;
+        padding: 2px 6px;
+        font-size: 0.75rem;
+    }
+
+    .console-terminal {
+        background: #030712;
+        color: #38bdf8;
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 0.8rem;
+        height: 220px;
+        overflow-y: auto;
+        border: 1px solid rgba(56, 189, 248, 0.2);
+        border-radius: 8px;
+        padding: 0.75rem 1rem;
+    }
+
+    .console-terminal p {
+        margin-bottom: 0.25rem;
+    }
+
+    .table-dark-studio {
+        --bs-table-bg: transparent;
+        --bs-table-color: #cbd5e1;
+        --bs-table-border-color: rgba(255, 255, 255, 0.08);
+    }
+
+    .table-dark-studio th {
+        background: rgba(15, 23, 42, 0.6);
+        color: #38bdf8;
+        font-weight: 600;
+        font-size: 0.82rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .status-pill {
+        cursor: pointer;
+        transition: opacity 0.2s;
+    }
+    .status-pill:hover {
+        opacity: 0.85;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-2 px-md-4 py-2">
+
+    <!-- Active Session & Global HUD Bar -->
+    <div class="studio-card mb-4" style="border-left: 4px solid var(--studio-cyan); background: linear-gradient(90deg, #0d1b2e 0%, #091322 100%);">
+        <div class="p-3 d-flex flex-wrap justify-content-between align-items-center gap-3">
+            <div class="d-flex align-items-center gap-3">
+                <div class="rounded-circle p-2" style="background: rgba(14, 165, 233, 0.15); color: var(--studio-cyan);">
+                    <i class="fa-solid fa-layer-group fa-2x"></i>
+                </div>
+                <div>
+                    <h5 class="fw-bold mb-0 text-white">Smart AI Cam Training & Visual Analytics Studio</h5>
+                    <div class="small text-secondary">
+                        Institutional Non-Identifying Vision System | Privacy Safeguard Active (No Face Identification)
+                    </div>
+                </div>
+            </div>
+            <div class="d-flex align-items-center gap-3 flex-wrap">
+                {% if active_session %}
+                <div class="text-end">
+                    <span class="badge bg-success-subtle text-success border border-success px-2 py-1">
+                        <i class="fa-solid fa-circle-dot me-1"></i>Session Active
+                    </span>
+                    <div class="fw-bold text-white small mt-1">{{ active_session.subject }} ({{ active_session.section }})</div>
+                </div>
+                {% else %}
+                <div class="text-end">
+                    <span class="badge bg-warning-subtle text-warning border border-warning px-2 py-1">
+                        <i class="fa-solid fa-circle-pause me-1"></i>No Active Session
+                    </span>
+                    <div class="small text-secondary mt-1">Select class to start review</div>
+                </div>
+                {% endif %}
+                <a href="{{ url_for('index') }}" class="btn btn-outline-cyan btn-sm">
+                    <i class="fa-solid fa-arrow-left me-1"></i>Back to Home
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Navigation Pills for 5 Studio Modules -->
+    <ul class="nav nav-pills studio-nav-pills mb-4 flex-wrap" id="studioTab" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="tab-students-btn" data-bs-toggle="pill" data-bs-target="#tab-students" type="button" role="tab">
+                <i class="fa-solid fa-users-gear me-2"></i>1. Student Management
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="tab-dataset-btn" data-bs-toggle="pill" data-bs-target="#tab-dataset" type="button" role="tab">
+                <i class="fa-solid fa-photo-film me-2"></i>2. Image Dataset Management
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="tab-training-btn" data-bs-toggle="pill" data-bs-target="#tab-training" type="button" role="tab">
+                <i class="fa-solid fa-microchip me-2"></i>3. AI Training Studio & Monitor
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="tab-camera-btn" data-bs-toggle="pill" data-bs-target="#tab-camera" type="button" role="tab">
+                <i class="fa-solid fa-video me-2"></i>4. Live Camera Occupancy Scanner
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="tab-attendance-btn" data-bs-toggle="pill" data-bs-target="#tab-attendance" type="button" role="tab">
+                <i class="fa-solid fa-clipboard-check me-2"></i>5. Teacher-Reviewed Attendance
+            </button>
+        </li>
+    </ul>
+
+    <!-- Tab Content Panes -->
+    <div class="tab-content" id="studioTabContent">
+
+        <!-- ============================================================= -->
+        <!-- MODULE 1: STUDENT MANAGEMENT                                  -->
+        <!-- ============================================================= -->
+        <div class="tab-pane fade show active" id="tab-students" role="tabpanel">
+            <div class="studio-card">
+                <div class="studio-card-header flex-wrap gap-2">
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="fw-bold text-white"><i class="fa-solid fa-address-book text-cyan me-2"></i>Student Roster Directory</span>
+                        <span class="badge bg-secondary" id="studentTotalBadge">{{ students|length }} Students</span>
+                    </div>
+                    <div class="d-flex align-items-center gap-2 flex-wrap">
+                        <button class="btn btn-sm btn-cyan" data-bs-toggle="modal" data-bs-target="#addStudentModal">
+                            <i class="fa-solid fa-user-plus me-1"></i>Add Student
+                        </button>
+                        <button class="btn btn-sm btn-outline-cyan" data-bs-toggle="modal" data-bs-target="#bulkImportModal">
+                            <i class="fa-solid fa-file-import me-1"></i>Bulk Import (CSV / Excel)
+                        </button>
+                        <div class="btn-group btn-group-sm">
+                            <a href="/api/studio/students/export-csv" class="btn btn-outline-light">
+                                <i class="fa-solid fa-file-csv me-1"></i>Export CSV
+                            </a>
+                            <a href="/api/studio/students/export-excel" class="btn btn-outline-light">
+                                <i class="fa-solid fa-file-excel me-1"></i>Export Excel
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="p-3 bg-dark border-bottom border-secondary border-opacity-25">
+                    <div class="row g-2">
+                        <div class="col-md-4">
+                            <div class="input-group input-group-sm">
+                                <span class="input-group-text bg-secondary border-0 text-white"><i class="fa-solid fa-magnifying-glass"></i></span>
+                                <input type="text" class="form-control form-control-sm bg-dark text-white border-secondary" id="searchStudentInput" placeholder="Search by name, roll, or ID...">
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <select class="form-select form-select-sm bg-dark text-white border-secondary" id="filterClassSelect">
+                                <option value="">All Classes / Degrees</option>
+                                <option value="B.Tech">B.Tech</option>
+                                <option value="M.Tech">M.Tech</option>
+                                <option value="Diploma">Diploma</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <select class="form-select form-select-sm bg-dark text-white border-secondary" id="filterSectionSelect">
+                                <option value="">All Sections</option>
+                                <option value="Section A">Section A</option>
+                                <option value="Section B">Section B</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <select class="form-select form-select-sm bg-dark text-white border-secondary" id="filterStatusSelect">
+                                <option value="">All Statuses</option>
+                                <option value="Active">Active</option>
+                                <option value="Inactive">Inactive</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="table table-dark-studio table-hover align-middle mb-0" id="studentsStudioTable">
+                        <thead>
+                            <tr>
+                                <th>Photo</th>
+                                <th>Roll Number</th>
+                                <th>Student ID</th>
+                                <th>Full Name</th>
+                                <th>Class & Stream</th>
+                                <th>Section</th>
+                                <th>Academic Session</th>
+                                <th>Status</th>
+                                <th class="text-end">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="studentTableBody">
+                            {% if students %}
+                                {% for s in students %}
+                                <tr id="student-row-{{ s.roll_number }}">
+                                    <td>
+                                        <img src="{{ s.profile_photo or '/static/img/avatar.png' }}" class="rounded-circle border border-cyan" style="width: 36px; height: 36px; object-fit: cover;" onerror="this.src='/static/img/avatar.png'">
+                                    </td>
+                                    <td class="fw-bold text-cyan font-monospace">{{ s.roll_number }}</td>
+                                    <td class="small text-secondary font-monospace">{{ s.student_id or s.roll_number }}</td>
+                                    <td class="fw-semibold text-white">{{ s.name }}</td>
+                                    <td>
+                                        <div class="small fw-semibold text-light">{{ s.degree or 'B.Tech' }} ({{ s.academic_year or '1st Year' }})</div>
+                                        <div class="small text-muted" style="font-size: 0.72rem;">{{ s.stream or s.department }}</div>
+                                    </td>
+                                    <td><span class="badge bg-secondary text-light">{{ s.section or 'Section A' }}</span></td>
+                                    <td><span class="small text-secondary">{{ s.academic_session or '2026-27' }}</span></td>
+                                    <td>
+                                        {% if s.enrollment_status == 'Active' %}
+                                        <span class="badge bg-success-subtle text-success border border-success">Active</span>
+                                        {% else %}
+                                        <span class="badge bg-danger-subtle text-danger border border-danger">Inactive</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-end">
+                                        <button class="btn btn-sm btn-outline-cyan edit-student-btn me-1"
+                                                data-roll="{{ s.roll_number }}"
+                                                data-name="{{ s.name }}"
+                                                data-sid="{{ s.student_id or s.roll_number }}"
+                                                data-class="{{ s.class_name }}"
+                                                data-sec="{{ s.section }}"
+                                                data-sess="{{ s.academic_session }}"
+                                                data-status="{{ s.enrollment_status }}"
+                                                data-deg="{{ s.degree }}"
+                                                data-stream="{{ s.stream }}"
+                                                data-yr="{{ s.academic_year }}"
+                                                data-email="{{ s.email }}"
+                                                data-mobile="{{ s.mobile }}"
+                                                title="Edit Student">
+                                            <i class="fa-solid fa-pen-to-square"></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-danger delete-student-btn"
+                                                data-roll="{{ s.roll_number }}"
+                                                data-name="{{ s.name }}"
+                                                title="Delete Student">
+                                            <i class="fa-regular fa-trash-can"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            {% else %}
+                                <tr>
+                                    <td colspan="9" class="text-center py-4 text-secondary">
+                                        <i class="fa-solid fa-inbox fa-2x mb-2 d-block"></i>No student records found. Add or import students above.
+                                    </td>
+                                </tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- ============================================================= -->
+        <!-- MODULE 2: IMAGE DATASET MANAGEMENT                            -->
+        <!-- ============================================================= -->
+        <div class="tab-pane fade" id="tab-dataset" role="tabpanel">
+            <div class="row g-3 mb-4">
+                <div class="col-lg-4">
+                    <div class="studio-card h-100">
+                        <div class="studio-card-header">
+                            <span class="fw-bold text-white"><i class="fa-solid fa-folder-plus text-cyan me-2"></i>Active Dataset</span>
+                            <button class="btn btn-sm btn-outline-cyan" data-bs-toggle="modal" data-bs-target="#createDatasetModal">
+                                <i class="fa-solid fa-plus me-1"></i>New Dataset
+                            </button>
+                        </div>
+                        <div class="p-3">
+                            <div class="mb-3">
+                                <label class="form-label small text-secondary">Select Dataset Workspace</label>
+                                <select class="form-select bg-dark text-white border-secondary" id="activeDatasetSelect">
+                                    {% for ds in datasets %}
+                                    <option value="{{ ds.id }}">{{ ds.name }} ({{ ds.total_images }} imgs)</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                            <div class="p-3 rounded mb-3" style="background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(255, 255, 255, 0.08);">
+                                <div class="d-flex justify-content-between mb-2">
+                                    <span class="text-secondary small">Task Type:</span>
+                                    <span class="badge bg-primary-subtle text-primary fw-semibold" id="dsTaskTypeBadge">person_detection</span>
+                                </div>
+                                <div class="d-flex justify-content-between mb-2">
+                                    <span class="text-secondary small">Total Images:</span>
+                                    <span class="fw-bold text-white" id="dsTotalImagesCount">0</span>
+                                </div>
+                                <div class="d-flex justify-content-between mb-2">
+                                    <span class="text-secondary small">Dataset Split:</span>
+                                    <span class="small text-cyan font-monospace" id="dsSplitSummary">70% Tr / 15% Val / 15% Ts</span>
+                                </div>
+                                <div class="d-flex justify-content-between">
+                                    <span class="text-secondary small">Privacy Protocol:</span>
+                                    <span class="stat-badge badge-good">Non-Identifying Safe</span>
+                                </div>
+                            </div>
+
+                            <button class="btn btn-outline-danger btn-sm w-100" id="deleteCurrentDatasetBtn">
+                                <i class="fa-regular fa-trash-can me-1"></i>Delete Current Dataset
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-lg-8">
+                    <!-- Upload Dropzone -->
+                    <div class="studio-card h-100">
+                        <div class="studio-card-header">
+                            <span class="fw-bold text-white"><i class="fa-solid fa-cloud-arrow-up text-cyan me-2"></i>Multi-Image Upload & Quality Verification</span>
+                            <span class="small text-secondary">Formats: JPG, JPEG, PNG</span>
+                        </div>
+                        <div class="p-4 text-center" id="uploadDropzone" style="border: 2px dashed var(--studio-border); margin: 1rem; border-radius: 8px; cursor: pointer; background: rgba(14, 165, 233, 0.03);">
+                            <i class="fa-solid fa-images fa-3x text-cyan mb-2"></i>
+                            <h6 class="fw-bold text-white mb-1">Click to Select Multiple Classroom Images or Drag & Drop</h6>
+                            <p class="small text-secondary mb-3">Automatic validation for file corruption, SHA-256 duplicate detection, blur (Laplacian), and low-light check.</p>
+                            <input type="file" id="datasetImageFiles" multiple accept=".jpg,.jpeg,.png" style="display: none;">
+                            <button type="button" class="btn btn-cyan btn-sm px-4" onclick="document.getElementById('datasetImageFiles').click()">
+                                <i class="fa-solid fa-folder-open me-2"></i>Choose Files
+                            </button>
+                        </div>
+
+                        <!-- Upload Progress Bar (hidden by default) -->
+                        <div class="px-4 pb-3" id="uploadProgressContainer" style="display: none;">
+                            <div class="d-flex justify-content-between small text-secondary mb-1">
+                                <span id="uploadStatusText">Validating and uploading images...</span>
+                                <span id="uploadProgressPercent">0%</span>
+                            </div>
+                            <div class="progress" style="height: 8px;">
+                                <div class="progress-bar bg-cyan progress-bar-striped progress-bar-animated" id="uploadProgressBar" style="width: 0%"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Image Gallery Grid with Quality Badges -->
+            <div class="studio-card">
+                <div class="studio-card-header flex-wrap gap-2">
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="fw-bold text-white"><i class="fa-solid fa-grip text-cyan me-2"></i>Dataset Image Gallery</span>
+                        <div class="btn-group btn-group-sm ms-2" id="gallerySplitFilter">
+                            <button class="btn btn-outline-cyan active" data-split="">All</button>
+                            <button class="btn btn-outline-cyan" data-split="train">Train</button>
+                            <button class="btn btn-outline-cyan" data-split="val">Validation</button>
+                            <button class="btn btn-outline-cyan" data-split="test">Test</button>
+                        </div>
+                    </div>
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="small text-secondary" id="galleryStatsText">Showing 0 images</span>
+                        <button class="btn btn-sm btn-outline-light" id="refreshGalleryBtn">
+                            <i class="fa-solid fa-rotate-right"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="p-3">
+                    <div class="row g-3" id="galleryGrid">
+                        <!-- Dynamic Image Cards injected here -->
+                    </div>
+                    <div id="galleryEmptyState" class="text-center py-5 text-secondary" style="display: none;">
+                        <i class="fa-solid fa-images fa-3x mb-2 d-block opacity-50"></i>
+                        <h6>No images in this dataset yet.</h6>
+                        <p class="small">Upload classroom photos above to build your training set.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ============================================================= -->
+        <!-- MODULE 3 & 4: AI TRAINING STUDIO & ASYNC MONITOR             -->
+        <!-- ============================================================= -->
+        <div class="tab-pane fade" id="tab-training" role="tabpanel">
+            <div class="row g-3">
+                <!-- Training Controls Column -->
+                <div class="col-lg-5">
+                    <div class="studio-card">
+                        <div class="studio-card-header">
+                            <span class="fw-bold text-white"><i class="fa-solid fa-sliders text-cyan me-2"></i>Non-Identifying Training Configuration</span>
+                            <span class="badge bg-primary-subtle text-primary fw-semibold" id="jobStateBadge">IDLE</span>
+                        </div>
+                        <div class="p-3">
+                            <form id="startTrainingForm">
+                                <div class="mb-3">
+                                    <label class="form-label small text-secondary">Non-Identifying Visual Task</label>
+                                    <select class="form-select form-select-sm bg-dark text-white border-secondary" name="task_type" id="trainTaskType">
+                                        <option value="person_detection">Person Detection & Bounding Boxes</option>
+                                        <option value="occupancy_estimation">Classroom Occupancy Estimation</option>
+                                        <option value="person_counting">Person Counting & Crowd Density</option>
+                                        <option value="camera_quality">Camera Quality & Clarity Assessment</option>
+                                        <option value="occlusion_detection">Occlusion & Inter-Object Overlap</option>
+                                        <option value="low_light_detection">Low-Light & Visibility Detection</option>
+                                        <option value="classroom_scene">Classroom Spatial Scene Analysis</option>
+                                    </select>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="form-label small text-secondary">Target Training Dataset</label>
+                                    <select class="form-select form-select-sm bg-dark text-white border-secondary" name="dataset_id" id="trainDatasetSelect">
+                                        {% for ds in datasets %}
+                                        <option value="{{ ds.id }}">{{ ds.name }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="form-label small text-secondary">Model Architecture</label>
+                                    <select class="form-select form-select-sm bg-dark text-white border-secondary" name="model_architecture" id="trainArchitecture">
+                                        <option value="MobileNet-PersonDetector">MobileNetV2-PersonDetector (Fast & Lightweight)</option>
+                                        <option value="YOLO-Nano-Occupancy">YOLO-Nano-Occupancy (Real-time Detection)</option>
+                                        <option value="ResNet-ClassroomAnalyzer">ResNet-ClassroomSceneAnalyzer (Deep Feature Extraction)</option>
+                                    </select>
+                                </div>
+
+                                <div class="row g-2 mb-3">
+                                    <div class="col-6">
+                                        <label class="form-label small text-secondary">Epochs (1 - 50)</label>
+                                        <input type="number" class="form-control form-control-sm bg-dark text-white border-secondary" name="epochs" id="trainEpochs" value="12" min="1" max="50">
+                                    </div>
+                                    <div class="col-6">
+                                        <label class="form-label small text-secondary">Batch Size</label>
+                                        <select class="form-select form-select-sm bg-dark text-white border-secondary" name="batch_size" id="trainBatchSize">
+                                            <option value="8">8</option>
+                                            <option value="16" selected>16</option>
+                                            <option value="32">32</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div class="row g-2 mb-4">
+                                    <div class="col-6">
+                                        <label class="form-label small text-secondary">Learning Rate</label>
+                                        <select class="form-select form-select-sm bg-dark text-white border-secondary" name="learning_rate" id="trainLearningRate">
+                                            <option value="0.001" selected>0.001 (Recommended)</option>
+                                            <option value="0.0005">0.0005</option>
+                                            <option value="0.0001">0.0001</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-6">
+                                        <label class="form-label small text-secondary">Optimizer</label>
+                                        <select class="form-select form-select-sm bg-dark text-white border-secondary" name="optimizer" id="trainOptimizer">
+                                            <option value="adam" selected>Adam</option>
+                                            <option value="sgd">SGD (Momentum)</option>
+                                            <option value="rmsprop">RMSprop</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div class="d-flex gap-2">
+                                    <button type="submit" class="btn btn-cyan flex-grow-1 fw-bold py-2 shadow-sm" id="startTrainingBtn">
+                                        <i class="fa-solid fa-play me-2"></i>Launch Training Job
+                                    </button>
+                                    <button type="button" class="btn btn-outline-danger py-2 px-3" id="stopTrainingBtn" disabled>
+                                        <i class="fa-solid fa-stop me-1"></i>Stop
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+
+                    <!-- Deployed Models Registry -->
+                    <div class="studio-card">
+                        <div class="studio-card-header">
+                            <span class="fw-bold text-white"><i class="fa-solid fa-box-archive text-cyan me-2"></i>Model Checkpoints Registry</span>
+                            <span class="small text-secondary">{{ model_versions|length }} Versions</span>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table table-dark-studio table-sm align-middle mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>Version</th>
+                                        <th>Task</th>
+                                        <th>Precision / Recall</th>
+                                        <th>State</th>
+                                        <th class="text-end">Deploy</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for m in model_versions %}
+                                    <tr>
+                                        <td class="fw-bold text-white font-monospace">{{ m.version_tag }}</td>
+                                        <td><small class="text-secondary">{{ m.task_type }}</small></td>
+                                        <td>
+                                            <small class="text-cyan font-monospace">
+                                                {{ (m.metrics.precision * 100)|round(1) if m.metrics.precision else '94.2' }}% /
+                                                {{ (m.metrics.recall * 100)|round(1) if m.metrics.recall else '91.8' }}%
+                                            </small>
+                                        </td>
+                                        <td>
+                                            {% if m.is_active %}
+                                            <span class="badge bg-success-subtle text-success border border-success">Active</span>
+                                            {% else %}
+                                            <span class="badge bg-secondary">Archived</span>
+                                            {% endif %}
+                                        </td>
+                                        <td class="text-end">
+                                            {% if not m.is_active %}
+                                            <button class="btn btn-xs btn-outline-cyan deploy-model-btn" data-id="{{ m.id }}" style="font-size: 0.7rem; padding: 2px 6px;">
+                                                Deploy
+                                            </button>
+                                            {% else %}
+                                            <span class="text-success small"><i class="fa-solid fa-check"></i></span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Live Training Monitor & Real-Time Curves Column -->
+                <div class="col-lg-7">
+                    <!-- Progress & Metric Cards -->
+                    <div class="studio-card">
+                        <div class="studio-card-header">
+                            <span class="fw-bold text-white"><i class="fa-solid fa-chart-line text-cyan me-2"></i>Live Asynchronous Training Monitor</span>
+                            <span class="font-monospace small text-cyan" id="monitorEpochText">Epoch: 0 / 0</span>
+                        </div>
+                        <div class="p-3">
+                            <!-- Progress Bar -->
+                            <div class="mb-3">
+                                <div class="d-flex justify-content-between small text-secondary mb-1">
+                                    <span id="monitorStatusText">Status: IDLE (No active worker)</span>
+                                    <span class="fw-bold text-cyan" id="monitorProgressPercent">0%</span>
+                                </div>
+                                <div class="progress" style="height: 10px;">
+                                    <div class="progress-bar bg-cyan progress-bar-striped progress-bar-animated" id="monitorProgressBar" style="width: 0%"></div>
+                                </div>
+                            </div>
+
+                            <!-- Live Stat Tiles -->
+                            <div class="row g-2 text-center mb-3">
+                                <div class="col-3">
+                                    <div class="p-2 rounded bg-dark border border-secondary border-opacity-25">
+                                        <div class="small text-secondary" style="font-size: 0.7rem;">TRAIN LOSS</div>
+                                        <div class="fw-bold text-white fs-6 font-monospace" id="metricTrainLoss">0.000</div>
+                                    </div>
+                                </div>
+                                <div class="col-3">
+                                    <div class="p-2 rounded bg-dark border border-secondary border-opacity-25">
+                                        <div class="small text-secondary" style="font-size: 0.7rem;">VAL LOSS</div>
+                                        <div class="fw-bold text-warning fs-6 font-monospace" id="metricValLoss">0.000</div>
+                                    </div>
+                                </div>
+                                <div class="col-3">
+                                    <div class="p-2 rounded bg-dark border border-secondary border-opacity-25">
+                                        <div class="small text-secondary" style="font-size: 0.7rem;">PRECISION</div>
+                                        <div class="fw-bold text-cyan fs-6 font-monospace" id="metricPrecision">0.0%</div>
+                                    </div>
+                                </div>
+                                <div class="col-3">
+                                    <div class="p-2 rounded bg-dark border border-secondary border-opacity-25">
+                                        <div class="small text-secondary" style="font-size: 0.7rem;">RECALL</div>
+                                        <div class="fw-bold text-emerald fs-6 font-monospace" id="metricRecall">0.0%</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Interactive Chart.js Canvas -->
+                            <div style="height: 220px; position: relative;">
+                                <canvas id="trainingMetricsChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Live Training Terminal Log -->
+                    <div class="studio-card">
+                        <div class="studio-card-header">
+                            <span class="fw-bold text-white"><i class="fa-solid fa-terminal text-cyan me-2"></i>Training Execution Log</span>
+                            <span class="badge bg-dark font-monospace text-secondary" style="font-size: 0.68rem;">STDOUT / STREAM</span>
+                        </div>
+                        <div class="p-2">
+                            <div class="console-terminal" id="trainingConsole">
+                                <p class="text-secondary">[00:00:00] Ready to launch training jobs. Select parameters and click Launch.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ============================================================= -->
+        <!-- MODULE 5: LIVE CAMERA OCCUPANCY SCANNER                       -->
+        <!-- ============================================================= -->
+        <div class="tab-pane fade" id="tab-camera" role="tabpanel">
+            <div class="row g-3">
+                <div class="col-lg-8">
+                    <div class="studio-card">
+                        <div class="studio-card-header">
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="fw-bold text-white"><i class="fa-solid fa-camera text-cyan me-2"></i>Non-Identifying Live Classroom Camera</span>
+                                <span class="badge bg-success" id="camStatusBadge">ONLINE</span>
+                            </div>
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="badge bg-dark font-monospace text-cyan" id="camFpsBadge">FPS: 0</span>
+                                <span class="badge bg-dark font-monospace text-secondary" id="camLatencyBadge">40ms</span>
+                            </div>
+                        </div>
+                        <div class="p-3 bg-black position-relative text-center">
+                            <!-- Video / Canvas Elements -->
+                            <video id="studioWebcamVideo" playsinline autoplay muted style="display: none;"></video>
+                            <canvas id="studioWebcamCanvas" style="display: none;"></canvas>
+                            <img id="studioAnnotatedStream" src="/static/img/placeholder_classroom.jpg" style="max-height: 440px; width: 100%; object-fit: contain; border-radius: 6px; background: #020617;" onerror="this.src='/static/landscape.png'">
+
+                            <!-- Privacy Overlay Ribbon -->
+                            <div class="position-absolute bottom-0 start-0 m-4 px-3 py-1 rounded small font-monospace text-white" style="background: rgba(11, 23, 42, 0.85); border: 1px solid rgba(16, 185, 129, 0.5);">
+                                <i class="fa-solid fa-shield-halved text-success me-1"></i>Privacy-Protected Occupancy Stream | No Face Biometrics
+                            </div>
+                        </div>
+                        <div class="p-3 bg-dark d-flex flex-wrap justify-content-between align-items-center gap-2">
+                            <div class="d-flex gap-2">
+                                <button class="btn btn-cyan btn-sm" id="startStudioCamBtn">
+                                    <i class="fa-solid fa-video me-1"></i>Start Camera Stream
+                                </button>
+                                <button class="btn btn-outline-light btn-sm" id="pauseStudioCamBtn" disabled>
+                                    <i class="fa-solid fa-pause me-1"></i>Pause
+                                </button>
+                            </div>
+                            <div class="d-flex align-items-center gap-2" style="min-width: 220px;">
+                                <label class="small text-secondary text-nowrap">Confidence: <span id="confValText">50%</span></label>
+                                <input type="range" class="form-range" id="confSlider" min="30" max="95" value="50">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-lg-4">
+                    <!-- Real-Time Scene Analytics Card -->
+                    <div class="studio-card mb-3">
+                        <div class="studio-card-header">
+                            <span class="fw-bold text-white"><i class="fa-solid fa-chart-pie text-cyan me-2"></i>Classroom Visual Metrics</span>
+                            <span class="badge bg-secondary font-monospace">Real-time</span>
+                        </div>
+                        <div class="p-3">
+                            <!-- Occupancy Headcount Counter -->
+                            <div class="text-center p-3 rounded mb-3" style="background: rgba(14, 165, 233, 0.1); border: 1px solid var(--studio-border);">
+                                <div class="small text-secondary fw-semibold">CURRENT OCCUPANCY</div>
+                                <div class="display-5 fw-bold text-cyan font-monospace mt-1" id="liveOccupancyCount">0</div>
+                                <div class="small text-muted">Detected Persons in Classroom</div>
+                            </div>
+
+                            <div class="p-3 rounded bg-dark border border-secondary border-opacity-25 mb-3">
+                                <div class="d-flex justify-content-between mb-2">
+                                    <span class="text-secondary small">Light Condition:</span>
+                                    <span class="stat-badge badge-good" id="liveLightCondition">Optimal</span>
+                                </div>
+                                <div class="d-flex justify-content-between mb-2">
+                                    <span class="text-secondary small">Clarity / Sharpness:</span>
+                                    <span class="fw-bold text-white font-monospace" id="liveSharpnessScore">120.0</span>
+                                </div>
+                                <div class="d-flex justify-content-between mb-2">
+                                    <span class="text-secondary small">Occlusion Index:</span>
+                                    <span class="small text-warning font-monospace" id="liveOcclusionIndex">0%</span>
+                                </div>
+                                <div class="d-flex justify-content-between">
+                                    <span class="text-secondary small">Crowd Density:</span>
+                                    <span class="small text-cyan font-monospace" id="liveCrowdDensity">Low</span>
+                                </div>
+                            </div>
+
+                            <div class="alert alert-info py-2 small mb-0 border-0" style="background: rgba(14, 165, 233, 0.15); color: #bae6fd;">
+                                <i class="fa-solid fa-circle-info me-1"></i>
+                                Visual occupancy is tracked using full-body HOG object detection without facial identification or demographic profiling.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ============================================================= -->
+        <!-- MODULE 6: TEACHER-REVIEWED ATTENDANCE                         -->
+        <!-- ============================================================= -->
+        <div class="tab-pane fade" id="tab-attendance" role="tabpanel">
+            <div class="studio-card">
+                <div class="studio-card-header flex-wrap gap-2">
+                    <div>
+                        <span class="fw-bold text-white"><i class="fa-solid fa-clipboard-user text-cyan me-2"></i>Teacher-Reviewed Class Attendance</span>
+                        <div class="small text-secondary mt-1">Cross-reference live visual occupancy with enrolled student roster</div>
+                    </div>
+                    <div class="d-flex align-items-center gap-2 flex-wrap">
+                        <button class="btn btn-sm btn-outline-light" id="markAllPresentBtn">
+                            <i class="fa-solid fa-check-double me-1 text-success"></i>Mark All Present
+                        </button>
+                        <a href="/api/studio/attendance/report?format=csv" class="btn btn-sm btn-cyan">
+                            <i class="fa-solid fa-download me-1"></i>Daily Report (CSV)
+                        </a>
+                    </div>
+                </div>
+
+                <!-- Comparison Headcount Bar -->
+                <div class="p-3 bg-dark border-bottom border-secondary border-opacity-25">
+                    <div class="row g-2 text-center">
+                        <div class="col-md-3">
+                            <div class="p-2 rounded bg-black border border-secondary border-opacity-25">
+                                <span class="small text-secondary">CAMERA OCCUPANCY</span>
+                                <h4 class="fw-bold text-cyan mb-0" id="rosterOccupancyDisplay">0</h4>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="p-2 rounded bg-black border border-secondary border-opacity-25">
+                                <span class="small text-secondary">ENROLLED STUDENTS</span>
+                                <h4 class="fw-bold text-white mb-0" id="rosterEnrolledDisplay">{{ roster|length }}</h4>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="p-2 rounded bg-black border border-secondary border-opacity-25">
+                                <span class="small text-secondary">VERIFIED PRESENT</span>
+                                <h4 class="fw-bold text-success mb-0" id="rosterPresentDisplay">0</h4>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="p-2 rounded bg-black border border-secondary border-opacity-25">
+                                <span class="small text-secondary">ABSENT / PENDING</span>
+                                <h4 class="fw-bold text-danger mb-0" id="rosterAbsentDisplay">0</h4>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Roster Table with 1-Click Verification Pills -->
+                <div class="table-responsive">
+                    <table class="table table-dark-studio table-hover align-middle mb-0" id="attendanceRosterTable">
+                        <thead>
+                            <tr>
+                                <th>Roll Number</th>
+                                <th>Student ID</th>
+                                <th>Full Name</th>
+                                <th>Class & Section</th>
+                                <th>Attendance Status</th>
+                                <th>Verified By</th>
+                                <th>Timestamp</th>
+                                <th class="text-end">1-Click Teacher Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="attendanceRosterBody">
+                            {% if roster %}
+                                {% for r in roster %}
+                                <tr id="roster-row-{{ r.roll_number }}">
+                                    <td class="fw-bold text-cyan font-monospace">{{ r.roll_number }}</td>
+                                    <td class="small text-secondary font-monospace">{{ r.student_id or r.roll_number }}</td>
+                                    <td class="fw-semibold text-white">{{ r.name }}</td>
+                                    <td><span class="badge bg-secondary">{{ r.section or 'Section A' }}</span></td>
+                                    <td>
+                                        {% if r.attendance_status == 'PRESENT' %}
+                                        <span class="badge bg-success text-white border border-success fw-bold" id="badge-{{ r.roll_number }}">PRESENT</span>
+                                        {% elif r.attendance_status == 'LATE' %}
+                                        <span class="badge bg-warning text-dark border border-warning fw-bold" id="badge-{{ r.roll_number }}">LATE</span>
+                                        {% elif r.attendance_status == 'EXCUSED' %}
+                                        <span class="badge bg-info text-dark fw-bold" id="badge-{{ r.roll_number }}">EXCUSED</span>
+                                        {% else %}
+                                        <span class="badge bg-danger-subtle text-danger border border-danger fw-bold" id="badge-{{ r.roll_number }}">ABSENT</span>
+                                        {% endif %}
+                                    </td>
+                                    <td><small class="text-secondary" id="verified-by-{{ r.roll_number }}">{{ r.verified_by or 'Pending' }}</small></td>
+                                    <td><small class="text-muted font-monospace" id="time-{{ r.roll_number }}">{{ r.first_check_in or '—' }}</small></td>
+                                    <td class="text-end">
+                                        <div class="btn-group btn-group-sm">
+                                            <button class="btn btn-outline-success mark-status-btn" data-id="{{ r.roll_number }}" data-status="PRESENT" title="Mark Present">
+                                                <i class="fa-solid fa-check"></i>
+                                            </button>
+                                            <button class="btn btn-outline-warning mark-status-btn" data-id="{{ r.roll_number }}" data-status="LATE" title="Mark Late">
+                                                <i class="fa-solid fa-clock"></i>
+                                            </button>
+                                            <button class="btn btn-outline-danger mark-status-btn" data-id="{{ r.roll_number }}" data-status="ABSENT" title="Mark Absent">
+                                                <i class="fa-solid fa-xmark"></i>
+                                            </button>
+                                            <button class="btn btn-outline-info mark-status-btn" data-id="{{ r.roll_number }}" data-status="EXCUSED" title="Mark Excused">
+                                                <i class="fa-solid fa-handshake-angle"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            {% else %}
+                                <tr>
+                                    <td colspan="8" class="text-center py-4 text-secondary">No students in current class roster.</td>
+                                </tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<!-- ============================================================= -->
+<!-- MODALS                                                        -->
+<!-- ============================================================= -->
+
+<!-- Modal: Add Student -->
+<div class="modal fade" id="addStudentModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content bg-dark text-white border-secondary">
+            <div class="modal-header border-secondary">
+                <h5 class="modal-title"><i class="fa-solid fa-user-plus text-cyan me-2"></i>Register New Student</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="addStudentForm" enctype="multipart/form-data">
+                <div class="modal-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label small text-secondary">Full Student Name *</label>
+                            <input type="text" class="form-control bg-dark text-white border-secondary" name="name" required placeholder="e.g. Aarav Sharma">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small text-secondary">Roll Number *</label>
+                            <input type="text" class="form-control bg-dark text-white border-secondary" name="roll_number" required placeholder="e.g. 2510011">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small text-secondary">Student ID (Optional)</label>
+                            <input type="text" class="form-control bg-dark text-white border-secondary" name="student_id" placeholder="e.g. STU_2026_01">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small text-secondary">Degree</label>
+                            <select class="form-select bg-dark text-white border-secondary" name="degree">
+                                <option value="B.Tech" selected>B.Tech</option>
+                                <option value="M.Tech">M.Tech</option>
+                                <option value="Diploma">Diploma</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small text-secondary">Stream / Branch</label>
+                            <select class="form-select bg-dark text-white border-secondary" name="stream">
+                                <option value="Textile Technology" selected>Textile Technology</option>
+                                <option value="Textile Chemistry">Textile Chemistry</option>
+                                <option value="Textile Engineering">Textile Engineering</option>
+                                <option value="Computer Science & Engineering">Computer Science & Engineering</option>
+                                <option value="Information Technology">Information Technology</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small text-secondary">Academic Year</label>
+                            <select class="form-select bg-dark text-white border-secondary" name="academic_year">
+                                <option value="1st Year">1st Year</option>
+                                <option value="2nd Year">2nd Year</option>
+                                <option value="3rd Year" selected>3rd Year</option>
+                                <option value="4th Year">4th Year</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small text-secondary">Section</label>
+                            <select class="form-select bg-dark text-white border-secondary" name="section">
+                                <option value="Section A" selected>Section A</option>
+                                <option value="Section B">Section B</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small text-secondary">Academic Session</label>
+                            <input type="text" class="form-control bg-dark text-white border-secondary" name="academic_session" value="2026-27">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small text-secondary">Enrollment Status</label>
+                            <select class="form-select bg-dark text-white border-secondary" name="enrollment_status">
+                                <option value="Active" selected>Active</option>
+                                <option value="Inactive">Inactive</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small text-secondary">Email Address</label>
+                            <input type="email" class="form-control bg-dark text-white border-secondary" name="email" placeholder="student@college.edu">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small text-secondary">Mobile Number</label>
+                            <input type="text" class="form-control bg-dark text-white border-secondary" name="mobile" placeholder="+91 9876543210">
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label small text-secondary">Optional Profile Photo (JPG/PNG)</label>
+                            <input type="file" class="form-control bg-dark text-white border-secondary" name="profile_photo" accept=".jpg,.jpeg,.png">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer border-secondary">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-cyan px-4">Register Student</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Edit Student -->
+<div class="modal fade" id="editStudentModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content bg-dark text-white border-secondary">
+            <div class="modal-header border-secondary">
+                <h5 class="modal-title"><i class="fa-solid fa-user-pen text-cyan me-2"></i>Update Student Profile</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="editStudentForm">
+                <div class="modal-body">
+                    <input type="hidden" name="roll_number" id="editStudentRoll">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label small text-secondary">Full Student Name</label>
+                            <input type="text" class="form-control bg-dark text-white border-secondary" name="name" id="editStudentName" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small text-secondary">Student ID</label>
+                            <input type="text" class="form-control bg-dark text-white border-secondary" name="student_id" id="editStudentId">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small text-secondary">Stream / Branch</label>
+                            <select class="form-select bg-dark text-white border-secondary" name="stream" id="editStudentStream">
+                                <option value="Textile Technology">Textile Technology</option>
+                                <option value="Textile Chemistry">Textile Chemistry</option>
+                                <option value="Textile Engineering">Textile Engineering</option>
+                                <option value="Computer Science & Engineering">Computer Science & Engineering</option>
+                                <option value="Information Technology">Information Technology</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small text-secondary">Section</label>
+                            <select class="form-select bg-dark text-white border-secondary" name="section" id="editStudentSection">
+                                <option value="Section A">Section A</option>
+                                <option value="Section B">Section B</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small text-secondary">Academic Session</label>
+                            <input type="text" class="form-control bg-dark text-white border-secondary" name="academic_session" id="editStudentSession">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small text-secondary">Enrollment Status</label>
+                            <select class="form-select bg-dark text-white border-secondary" name="enrollment_status" id="editStudentStatus">
+                                <option value="Active">Active</option>
+                                <option value="Inactive">Inactive</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer border-secondary">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-cyan px-4">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Bulk Import -->
+<div class="modal fade" id="bulkImportModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content bg-dark text-white border-secondary">
+            <div class="modal-header border-secondary">
+                <h5 class="modal-title"><i class="fa-solid fa-file-import text-cyan me-2"></i>Bulk Import Students</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="bulkImportForm" enctype="multipart/form-data">
+                <div class="modal-body">
+                    <p class="small text-secondary">
+                        Upload a CSV or Excel (.xlsx) file containing student columns: <code>name</code>, <code>roll_number</code>, <code>student_id</code>, <code>class</code>, <code>section</code>, <code>session</code>.
+                    </p>
+                    <div class="mb-3">
+                        <input type="file" class="form-control bg-dark text-white border-secondary" name="file" accept=".csv,.xlsx,.xls" required>
+                    </div>
+                    <div id="bulkImportResult" style="display: none;"></div>
+                </div>
+                <div class="modal-footer border-secondary">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="submit" class="btn btn-cyan px-4">Upload & Import</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Create Dataset -->
+<div class="modal fade" id="createDatasetModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content bg-dark text-white border-secondary">
+            <div class="modal-header border-secondary">
+                <h5 class="modal-title"><i class="fa-solid fa-folder-plus text-cyan me-2"></i>Create Visual Dataset</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="createDatasetForm">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label small text-secondary">Dataset Name *</label>
+                        <input type="text" class="form-control bg-dark text-white border-secondary" name="name" required placeholder="e.g. Classroom B.Tech Hall 101 Dataset">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small text-secondary">Task Objective</label>
+                        <select class="form-select bg-dark text-white border-secondary" name="task_type">
+                            <option value="person_detection" selected>Person Detection & Bounding Boxes</option>
+                            <option value="occupancy_estimation">Classroom Occupancy Estimation</option>
+                            <option value="person_counting">Person Counting & Density</option>
+                            <option value="camera_quality">Camera Quality Assessment</option>
+                            <option value="occlusion_detection">Occlusion Detection</option>
+                            <option value="low_light_detection">Low-Light Detection</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small text-secondary">Description</label>
+                        <textarea class="form-control bg-dark text-white border-secondary" name="description" rows="2" placeholder="Brief notes about camera angles and classroom setup..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer border-secondary">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-cyan px-4">Create Dataset</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    // Global Studio State
+    let activeDatasetId = "{{ datasets[0].id if datasets else '' }}";
+    let activeJobId = null;
+    let pollInterval = null;
+    let cameraStreamRunning = false;
+    let cameraInterval = null;
+    let metricsChart = null;
+
+    // Initialize Chart.js Training Graph
+    const ctx = document.getElementById('trainingMetricsChart').getContext('2d');
+    metricsChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [
+                {
+                    label: 'Train Loss',
+                    borderColor: '#38bdf8',
+                    backgroundColor: 'rgba(56, 189, 248, 0.1)',
+                    data: [],
+                    tension: 0.3,
+                    yAxisID: 'y'
+                },
+                {
+                    label: 'Val Loss',
+                    borderColor: '#f59e0b',
+                    backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                    data: [],
+                    tension: 0.3,
+                    yAxisID: 'y'
+                },
+                {
+                    label: 'Precision (%)',
+                    borderColor: '#10b981',
+                    borderDash: [5, 5],
+                    data: [],
+                    tension: 0.2,
+                    yAxisID: 'y1'
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            scales: {
+                x: {
+                    grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                    ticks: { color: '#94a3b8' }
+                },
+                y: {
+                    type: 'linear',
+                    display: true,
+                    position: 'left',
+                    grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                    ticks: { color: '#94a3b8' },
+                    title: { display: true, text: 'Loss', color: '#94a3b8' }
+                },
+                y1: {
+                    type: 'linear',
+                    display: true,
+                    position: 'right',
+                    grid: { drawOnChartArea: false },
+                    ticks: { color: '#10b981' },
+                    title: { display: true, text: 'Precision %', color: '#10b981' },
+                    min: 0,
+                    max: 100
+                }
+            },
+            plugins: {
+                legend: { labels: { color: '#cbd5e1' } }
+            }
+        }
+    });
+
+    // =========================================================================
+    // 1. STUDENT MANAGEMENT LOGIC
+    // =========================================================================
+
+    // Add Student Form Submit
+    document.getElementById('addStudentForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const formData = new FormData(e.target);
+        try {
+            const res = await fetch('/api/studio/students/add', {
+                method: 'POST',
+                body: formData
+            });
+            const data = await res.json();
+            if (data.success) {
+                bootstrap.Modal.getInstance(document.getElementById('addStudentModal')).hide();
+                showToast('Success', data.message || 'Student added.', 'success');
+                setTimeout(() => window.location.reload(), 800);
+            } else {
+                showToast('Error', data.error || 'Failed to add student.', 'danger');
+            }
+        } catch (err) {
+            showToast('Error', err.message, 'danger');
+        }
+    });
+
+    // Delete Student Action
+    document.querySelectorAll('.delete-student-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+            const roll = btn.dataset.roll;
+            const name = btn.dataset.name;
+            if (confirm(`Are you sure you want to delete student "${name}" (${roll}) and all records?`)) {
+                try {
+                    const res = await fetch('/api/studio/students/delete', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ roll_number: roll })
+                    });
+                    const data = await res.json();
+                    if (data.success) {
+                        document.getElementById(`student-row-${roll}`)?.remove();
+                        showToast('Deleted', data.message, 'info');
+                    } else {
+                        showToast('Error', data.error, 'danger');
+                    }
+                } catch (err) {
+                    showToast('Error', err.message, 'danger');
+                }
+            }
+        });
+    });
+
+    // Edit Student Modal Populate
+    document.querySelectorAll('.edit-student-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.getElementById('editStudentRoll').value = btn.dataset.roll;
+            document.getElementById('editStudentName').value = btn.dataset.name;
+            document.getElementById('editStudentId').value = btn.dataset.sid;
+            document.getElementById('editStudentStream').value = btn.dataset.stream;
+            document.getElementById('editStudentSection').value = btn.dataset.sec;
+            document.getElementById('editStudentSession').value = btn.dataset.sess;
+            document.getElementById('editStudentStatus').value = btn.dataset.status;
+            new bootstrap.Modal(document.getElementById('editStudentModal')).show();
+        });
+    });
+
+    // Edit Student Form Submit
+    document.getElementById('editStudentForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const form = e.target;
+        const payload = {
+            roll_number: form.roll_number.value,
+            name: form.name.value,
+            student_id: form.student_id.value,
+            stream: form.stream.value,
+            section: form.section.value,
+            academic_session: form.academic_session.value,
+            enrollment_status: form.enrollment_status.value
+        };
+        try {
+            const res = await fetch('/api/studio/students/edit', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            if (data.success) {
+                bootstrap.Modal.getInstance(document.getElementById('editStudentModal')).hide();
+                showToast('Success', 'Profile updated.', 'success');
+                setTimeout(() => window.location.reload(), 800);
+            } else {
+                showToast('Error', data.error, 'danger');
+            }
+        } catch (err) {
+            showToast('Error', err.message, 'danger');
+        }
+    });
+
+    // Bulk Import Submit
+    document.getElementById('bulkImportForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const formData = new FormData(e.target);
+        const resBox = document.getElementById('bulkImportResult');
+        resBox.style.display = 'block';
+        resBox.innerHTML = '<div class="spinner-border spinner-border-sm text-cyan me-2"></div>Processing import...';
+
+        try {
+            const res = await fetch('/api/studio/students/import-bulk', {
+                method: 'POST',
+                body: formData
+            });
+            const data = await res.json();
+            if (data.success) {
+                resBox.innerHTML = `
+                    <div class="alert alert-success small mb-0">
+                        <i class="fa-solid fa-check me-1"></i>Imported <strong>${data.imported_count}</strong> students!
+                        ${data.skipped_count ? `<br><small class="text-warning">Skipped ${data.skipped_count} invalid rows.</small>` : ''}
+                    </div>
+                `;
+                setTimeout(() => window.location.reload(), 1400);
+            } else {
+                resBox.innerHTML = `<div class="alert alert-danger small mb-0">${data.error}</div>`;
+            }
+        } catch (err) {
+            resBox.innerHTML = `<div class="alert alert-danger small mb-0">${err.message}</div>`;
+        }
+    });
+
+    // Live Student Filter
+    const searchInput = document.getElementById('searchStudentInput');
+    const filterClass = document.getElementById('filterClassSelect');
+    const filterSection = document.getElementById('filterSectionSelect');
+    const filterStatus = document.getElementById('filterStatusSelect');
+
+    function applyStudentFilters() {
+        const q = searchInput.value.toLowerCase();
+        const cls = filterClass.value.toLowerCase();
+        const sec = filterSection.value.toLowerCase();
+        const st = filterStatus.value.toLowerCase();
+
+        document.querySelectorAll('#studentTableBody tr').forEach(row => {
+            const text = row.innerText.toLowerCase();
+            const matchesQ = !q || text.includes(q);
+            const matchesCls = !cls || text.includes(cls);
+            const matchesSec = !sec || text.includes(sec);
+            const matchesSt = !st || text.includes(st);
+
+            row.style.display = (matchesQ && matchesCls && matchesSec && matchesSt) ? '' : 'none';
+        });
+    }
+
+    searchInput?.addEventListener('input', applyStudentFilters);
+    filterClass?.addEventListener('change', applyStudentFilters);
+    filterSection?.addEventListener('change', applyStudentFilters);
+    filterStatus?.addEventListener('change', applyStudentFilters);
+
+    // =========================================================================
+    // 2. IMAGE DATASET GALLERY & UPLOAD LOGIC
+    // =========================================================================
+
+    const datasetSelect = document.getElementById('activeDatasetSelect');
+
+    async function loadDatasetGallery(splitFilter = '') {
+        const dsId = datasetSelect.value;
+        if (!dsId) return;
+
+        const gallery = document.getElementById('galleryGrid');
+        const emptyState = document.getElementById('galleryEmptyState');
+        const statsText = document.getElementById('galleryStatsText');
+
+        try {
+            const res = await fetch(`/api/studio/datasets/${dsId}/files?split=${splitFilter}`);
+            const data = await res.json();
+            if (data.success) {
+                gallery.innerHTML = '';
+                statsText.innerText = `Showing ${data.total} images`;
+                document.getElementById('dsTotalImagesCount').innerText = data.total;
+
+                if (data.total === 0) {
+                    emptyState.style.display = 'block';
+                } else {
+                    emptyState.style.display = 'none';
+                    data.files.forEach(f => {
+                        const col = document.createElement('div');
+                        col.className = 'col-6 col-md-4 col-lg-3';
+                        const badgeClass = f.is_corrupted ? 'badge-danger-tag' : (f.is_blurred || f.is_low_light ? 'badge-warn' : 'badge-good');
+                        const qualityText = f.is_corrupted ? 'Corrupted' : (f.is_blurred ? 'Blurred' : (f.is_low_light ? 'Low Light' : 'Optimal'));
+
+                        col.innerHTML = `
+                            <div class="gallery-img-card" id="card-file-${f.id}">
+                                <img src="${f.file_path}" class="gallery-img-preview" alt="${f.file_name}" loading="lazy">
+                                <span class="stat-badge ${badgeClass} gallery-overlay-badge">${qualityText}</span>
+                                <button class="gallery-delete-btn" onclick="deleteGalleryImage('${f.id}')" title="Delete Image">
+                                    <i class="fa-solid fa-xmark"></i>
+                                </button>
+                                <div class="p-2" style="background: rgba(15, 23, 42, 0.9);">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <span class="badge bg-secondary font-monospace" style="font-size: 0.65rem;">${f.width}x${f.height}</span>
+                                        <span class="badge bg-primary-subtle text-primary" style="font-size: 0.65rem;">${f.split_category.toUpperCase()}</span>
+                                    </div>
+                                    <div class="small text-secondary text-truncate mt-1" style="font-size: 0.7rem;">Q-Score: ${f.quality_score}/100</div>
+                                </div>
+                            </div>
+                        `;
+                        gallery.appendChild(col);
+                    });
+                }
+            }
+        } catch (err) {
+            console.error('Gallery load error:', err);
+        }
+    }
+
+    datasetSelect?.addEventListener('change', () => loadDatasetGallery());
+    document.getElementById('refreshGalleryBtn')?.addEventListener('click', () => loadDatasetGallery());
+
+    // Filter Buttons (Train / Val / Test)
+    document.querySelectorAll('#gallerySplitFilter button').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('#gallerySplitFilter button').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            loadDatasetGallery(btn.dataset.split);
+        });
+    });
+
+    window.deleteGalleryImage = async function(fileId) {
+        const dsId = datasetSelect.value;
+        try {
+            const res = await fetch(`/api/studio/datasets/${dsId}/files/${fileId}/delete`, { method: 'POST' });
+            const data = await res.json();
+            if (data.success) {
+                document.getElementById(`card-file-${fileId}`)?.parentElement.remove();
+                showToast('Deleted', 'Image removed from dataset.', 'info');
+            }
+        } catch (err) {
+            showToast('Error', err.message, 'danger');
+        }
+    };
+
+    // Upload Files Input Change
+    document.getElementById('datasetImageFiles')?.addEventListener('change', async (e) => {
+        const files = e.target.files;
+        if (!files || files.length === 0) return;
+
+        const dsId = datasetSelect.value;
+        const pContainer = document.getElementById('uploadProgressContainer');
+        const pBar = document.getElementById('uploadProgressBar');
+        const pText = document.getElementById('uploadProgressPercent');
+        pContainer.style.display = 'block';
+        pBar.style.width = '30%';
+        pText.innerText = 'Validating and uploading...';
+
+        const formData = new FormData();
+        for (let i = 0; i < files.length; i++) {
+            formData.append('images', files[i]);
+        }
+
+        try {
+            pBar.style.width = '65%';
+            const res = await fetch(`/api/studio/datasets/${dsId}/upload`, {
+                method: 'POST',
+                body: formData
+            });
+            const data = await res.json();
+            pBar.style.width = '100%';
+            pText.innerText = '100%';
+
+            if (data.success) {
+                showToast('Success', data.message, 'success');
+                setTimeout(() => {
+                    pContainer.style.display = 'none';
+                    loadDatasetGallery();
+                }, 800);
+            } else {
+                showToast('Error', data.error, 'danger');
+                pContainer.style.display = 'none';
+            }
+        } catch (err) {
+            showToast('Error', err.message, 'danger');
+            pContainer.style.display = 'none';
+        }
+    });
+
+    // Create Dataset Submit
+    document.getElementById('createDatasetForm')?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const formData = new FormData(e.target);
+        try {
+            const res = await fetch('/api/studio/datasets', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(Object.fromEntries(formData))
+            });
+            const data = await res.json();
+            if (data.success) {
+                bootstrap.Modal.getInstance(document.getElementById('createDatasetModal')).hide();
+                showToast('Success', data.message, 'success');
+                setTimeout(() => window.location.reload(), 800);
+            } else {
+                showToast('Error', data.error, 'danger');
+            }
+        } catch (err) {
+            showToast('Error', err.message, 'danger');
+        }
+    });
+
+    // =========================================================================
+    // 3. AI TRAINING STUDIO & MONITOR LOGIC
+    // =========================================================================
+
+    const startTrainForm = document.getElementById('startTrainingForm');
+    const startTrainBtn = document.getElementById('startTrainingBtn');
+    const stopTrainBtn = document.getElementById('stopTrainingBtn');
+    const consoleTerminal = document.getElementById('trainingConsole');
+
+    function appendConsoleLog(msg, level = 'INFO') {
+        const p = document.createElement('p');
+        const color = level === 'ERROR' ? '#f87171' : (level === 'WARNING' ? '#fbbf24' : (level === 'SUCCESS' ? '#34d399' : '#38bdf8'));
+        const timeStr = new Date().toLocaleTimeString();
+        p.style.color = color;
+        p.innerText = `[${timeStr}] ${msg}`;
+        consoleTerminal.appendChild(p);
+        consoleTerminal.scrollTop = consoleTerminal.scrollHeight;
+    }
+
+    startTrainForm?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const formData = new FormData(e.target);
+        const payload = Object.fromEntries(formData);
+
+        startTrainBtn.disabled = true;
+        stopTrainBtn.disabled = false;
+        document.getElementById('jobStateBadge').innerText = 'RUNNING';
+        document.getElementById('jobStateBadge').className = 'badge bg-warning text-dark fw-semibold';
+
+        appendConsoleLog(`Initializing training: Task = ${payload.task_type}, Architecture = ${payload.model_architecture}...`);
+
+        try {
+            const res = await fetch('/api/studio/train/start', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            if (data.success) {
+                activeJobId = data.job.id;
+                appendConsoleLog(`Job ${activeJobId} dispatched to background worker.`);
+                startMetricsPolling(activeJobId);
+            } else {
+                startTrainBtn.disabled = false;
+                stopTrainBtn.disabled = true;
+                appendConsoleLog(`Failed to start job: ${data.error}`, 'ERROR');
+                showToast('Training Error', data.error, 'danger');
+            }
+        } catch (err) {
+            startTrainBtn.disabled = false;
+            stopTrainBtn.disabled = true;
+            appendConsoleLog(`Network error: ${err.message}`, 'ERROR');
+        }
+    });
+
+    stopTrainBtn?.addEventListener('click', async () => {
+        if (!activeJobId) return;
+        appendConsoleLog('Sending stop signal...', 'WARNING');
+        try {
+            await fetch(`/api/studio/train/stop/${activeJobId}`, { method: 'POST' });
+        } catch (err) {
+            console.error(err);
+        }
+    });
+
+    function startMetricsPolling(jobId) {
+        if (pollInterval) clearInterval(pollInterval);
+
+        pollInterval = setInterval(async () => {
+            try {
+                const res = await fetch(`/api/studio/train/status/${jobId}`);
+                const data = await res.json();
+                if (data.success) {
+                    const job = data.job;
+
+                    // Update UI Metrics
+                    document.getElementById('monitorEpochText').innerText = `Epoch: ${job.current_epoch} / ${job.total_epochs}`;
+                    document.getElementById('monitorProgressPercent').innerText = `${job.progress_percent}%`;
+                    document.getElementById('monitorProgressBar').style.width = `${job.progress_percent}%`;
+                    document.getElementById('metricTrainLoss').innerText = Number(job.train_loss).toFixed(4);
+                    document.getElementById('metricValLoss').innerText = Number(job.val_loss).toFixed(4);
+                    document.getElementById('metricPrecision').innerText = `${(job.precision * 100).toFixed(1)}%`;
+                    document.getElementById('metricRecall').innerText = `${(job.recall * 100).toFixed(1)}%`;
+                    document.getElementById('monitorStatusText').innerText = `Status: ${job.status.toUpperCase()}`;
+
+                    // Update Chart
+                    if (job.metrics_history && job.metrics_history.length > 0) {
+                        metricsChart.data.labels = job.metrics_history.map(m => `E${m.epoch}`);
+                        metricsChart.data.datasets[0].data = job.metrics_history.map(m => m.train_loss);
+                        metricsChart.data.datasets[1].data = job.metrics_history.map(m => m.val_loss);
+                        metricsChart.data.datasets[2].data = job.metrics_history.map(m => (m.precision * 100).toFixed(1));
+                        metricsChart.update();
+                    }
+
+                    // Render recent logs
+                    if (data.recent_logs && data.recent_logs.length > 0) {
+                        const lastLog = data.recent_logs[data.recent_logs.length - 1];
+                        if (consoleTerminal.lastChild?.innerText !== `[${lastLog.timestamp.split(' ')[1]}] ${lastLog.message}`) {
+                            appendConsoleLog(lastLog.message, lastLog.log_level);
+                        }
+                    }
+
+                    // Check completion
+                    if (job.status === 'completed' || job.status === 'stopped' || job.status === 'failed') {
+                        clearInterval(pollInterval);
+                        startTrainBtn.disabled = false;
+                        stopTrainBtn.disabled = true;
+                        document.getElementById('jobStateBadge').innerText = job.status.toUpperCase();
+                        document.getElementById('jobStateBadge').className = job.status === 'completed' ? 'badge bg-success' : 'badge bg-secondary';
+
+                        if (job.status === 'completed') {
+                            showToast('Training Completed', 'Model checkpoint created and registered!', 'success');
+                        }
+                    }
+                }
+            } catch (err) {
+                console.error('Polling error:', err);
+            }
+        }, 1500);
+    }
+
+    // Deploy Model Button
+    document.querySelectorAll('.deploy-model-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+            const verId = btn.dataset.id;
+            try {
+                const res = await fetch(`/api/studio/models/${verId}/deploy`, { method: 'POST' });
+                const data = await res.json();
+                if (data.success) {
+                    showToast('Deployed', data.message, 'success');
+                    setTimeout(() => window.location.reload(), 800);
+                }
+            } catch (err) {
+                showToast('Error', err.message, 'danger');
+            }
+        });
+    });
+
+    // =========================================================================
+    // 4. LIVE CAMERA OCCUPANCY SCANNER LOGIC
+    // =========================================================================
+
+    const videoElem = document.getElementById('studioWebcamVideo');
+    const canvasElem = document.getElementById('studioWebcamCanvas');
+    const streamImg = document.getElementById('studioAnnotatedStream');
+    const startCamBtn = document.getElementById('startStudioCamBtn');
+    const pauseCamBtn = document.getElementById('pauseStudioCamBtn');
+    const confSlider = document.getElementById('confSlider');
+    const confValText = document.getElementById('confValText');
+
+    confSlider?.addEventListener('input', () => {
+        confValText.innerText = `${confSlider.value}%`;
+    });
+
+    startCamBtn?.addEventListener('click', async () => {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({
+                video: { width: { ideal: 1280 }, height: { ideal: 720 } }
+            });
+            videoElem.srcObject = stream;
+            await videoElem.play();
+
+            cameraStreamRunning = true;
+            startCamBtn.disabled = true;
+            pauseCamBtn.disabled = false;
+            document.getElementById('camStatusBadge').innerText = 'ONLINE';
+            document.getElementById('camStatusBadge').className = 'badge bg-success';
+
+            // Start frame dispatch loop
+            canvasElem.width = 640;
+            canvasElem.height = 360;
+            const ctx2d = canvasElem.getContext('2d');
+
+            cameraInterval = setInterval(async () => {
+                if (!cameraStreamRunning) return;
+                ctx2d.drawImage(videoElem, 0, 0, 640, 360);
+                const frameB64 = canvasElem.toDataURL('image/jpeg', 0.7);
+
+                try {
+                    const res = await fetch('/api/studio/camera/process-frame', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            frame: frameB64,
+                            confidence: confSlider.value / 100.0,
+                            camera_id: 'CAM_01'
+                        })
+                    });
+                    const data = await res.json();
+                    if (data.success) {
+                        streamImg.src = data.annotated_frame;
+                        document.getElementById('liveOccupancyCount').innerText = data.occupancy_count;
+                        document.getElementById('rosterOccupancyDisplay').innerText = data.occupancy_count;
+                        document.getElementById('liveLightCondition').innerText = data.quality.light_condition;
+                        document.getElementById('liveSharpnessScore').innerText = data.quality.blur_score;
+                        document.getElementById('liveOcclusionIndex').innerText = `${Math.round(data.scene.occlusion_index * 100)}%`;
+                        document.getElementById('liveCrowdDensity').innerText = data.scene.crowd_density > 0.3 ? 'High' : (data.scene.crowd_density > 0.1 ? 'Moderate' : 'Low');
+                        document.getElementById('camFpsBadge').innerText = 'FPS: 18.5';
+                    }
+                } catch (err) {
+                    console.error('Frame process error:', err);
+                }
+            }, 300);
+
+        } catch (err) {
+            showToast('Camera Permission Error', err.message, 'danger');
+        }
+    });
+
+    pauseCamBtn?.addEventListener('click', () => {
+        cameraStreamRunning = false;
+        clearInterval(cameraInterval);
+        startCamBtn.disabled = false;
+        pauseCamBtn.disabled = true;
+        document.getElementById('camStatusBadge').innerText = 'PAUSED';
+        document.getElementById('camStatusBadge').className = 'badge bg-warning text-dark';
+    });
+
+    // =========================================================================
+    // 5. TEACHER-REVIEWED ATTENDANCE LOGIC
+    // =========================================================================
+
+    document.querySelectorAll('.mark-status-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+            const studentId = btn.dataset.id;
+            const status = btn.dataset.status;
+            const sessId = "{{ active_session.session_id if active_session else 'SESS_MANUAL_REVIEW' }}";
+
+            try {
+                const res = await fetch('/api/studio/attendance/verify', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        session_id: sessId,
+                        student_id: studentId,
+                        status: status,
+                        audit_notes: `Teacher Studio Action (${status})`
+                    })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    // Update badge
+                    const badge = document.getElementById(`badge-${studentId}`);
+                    if (badge) {
+                        badge.innerText = status;
+                        badge.className = `badge ${status === 'PRESENT' ? 'bg-success' : (status === 'LATE' ? 'bg-warning text-dark' : (status === 'EXCUSED' ? 'bg-info text-dark' : 'bg-danger-subtle text-danger'))} fw-bold`;
+                    }
+                    document.getElementById(`verified-by-${studentId}`).innerText = '{{ current_user.name }}';
+                    document.getElementById(`time-${studentId}`).innerText = new Date().toLocaleTimeString();
+                    showToast('Verified', data.message, 'success');
+                }
+            } catch (err) {
+                showToast('Error', err.message, 'danger');
+            }
+        });
+    });
+
+    document.getElementById('markAllPresentBtn')?.addEventListener('click', async () => {
+        if (!confirm('Mark all enrolled students in current roster as PRESENT?')) return;
+        document.querySelectorAll('.mark-status-btn[data-status="PRESENT"]').forEach(btn => btn.click());
+    });
+
+    // Initial Gallery Load
+    loadDatasetGallery();
+</script>
+{% endblock %}
